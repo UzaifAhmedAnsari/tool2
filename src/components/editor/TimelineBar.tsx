@@ -3,7 +3,7 @@ import { Pencil, Music } from "lucide-react";
 
 export const TimelineBar: React.FC = () => {
   return (
-    <div className="h-11 bg-editor-toolbar border-t border-editor-toolbar-border flex items-center px-4 gap-4 shrink-0">
+    <div className="h-11 bg-editor-toolbar border-t border-editor-toolbar-border items-center px-4 gap-4 shrink-0 hidden md:flex">
       <div className="flex items-center gap-2 text-[12px] text-muted-foreground tabular-nums">
         <span>00:00</span>
         <span>/</span>
