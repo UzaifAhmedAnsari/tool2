@@ -1,6 +1,6 @@
 import React from "react";
-import { ChevronDown, Trash2, Copy, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline } from "lucide-react";
-import type { CanvasElement } from "./EditorShell";
+import { ChevronDown, Trash2, Copy, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, AlignLeft, AlignCenter, AlignRight, Plus } from "lucide-react";
+import type { CanvasElement, CanvasSizePreset, EditorMode } from "./EditorShell";
 
 interface InspectorProps {
   selectedElement: CanvasElement | null;
@@ -8,9 +8,20 @@ interface InspectorProps {
   onDeleteElement: (id: string) => void;
   onDuplicateElement: (id: string) => void;
   onMoveLayer: (id: string, direction: "up" | "down" | "top" | "bottom") => void;
-  canvasSize: { width: number; height: number; label: string };
+  canvasSize: CanvasSizePreset;
   canvasBackground: string;
   onBackgroundChange: (bg: string) => void;
+  designTitle: string;
+  onDesignTitleChange: (title: string) => void;
+  gridEnabled: boolean;
+  onGridToggle: (on: boolean) => void;
+  alignmentGuides: boolean;
+  onAlignmentGuidesToggle: (on: boolean) => void;
+  bleedEnabled: boolean;
+  onBleedToggle: (on: boolean) => void;
+  folds: string;
+  onFoldsChange: (folds: string) => void;
+  mode: EditorMode;
   isMobile?: boolean;
 }
 
@@ -23,10 +34,20 @@ export const Inspector: React.FC<InspectorProps> = ({
   canvasSize,
   canvasBackground,
   onBackgroundChange,
+  designTitle,
+  onDesignTitleChange,
+  gridEnabled,
+  onGridToggle,
+  alignmentGuides,
+  onAlignmentGuidesToggle,
+  bleedEnabled,
+  onBleedToggle,
+  folds,
+  onFoldsChange,
+  mode,
   isMobile,
 }) => {
   if (isMobile) {
-    // Mobile: render content directly (no wrapper)
     return selectedElement ? (
       <ElementInspector
         element={selectedElement}
@@ -43,7 +64,7 @@ export const Inspector: React.FC<InspectorProps> = ({
       <div className="px-4 py-3 border-b border-editor-inspector-border">
         <h2 className="text-sm font-semibold text-foreground">
           {selectedElement
-            ? selectedElement.type === "text" ? "Text" : selectedElement.type === "shape" ? "Shape" : "Image"
+            ? selectedElement.type === "text" ? "Text" : selectedElement.type === "shape" ? "Shape" : selectedElement.type === "video" ? "Video" : "Image"
             : "Design"}
         </h2>
       </div>
@@ -58,7 +79,22 @@ export const Inspector: React.FC<InspectorProps> = ({
             onMoveLayer={(dir) => onMoveLayer(selectedElement.id, dir)}
           />
         ) : (
-          <DesignInspector canvasSize={canvasSize} canvasBackground={canvasBackground} onBackgroundChange={onBackgroundChange} />
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+          />
         )}
       </div>
     </div>
@@ -66,38 +102,151 @@ export const Inspector: React.FC<InspectorProps> = ({
 };
 
 const DesignInspector: React.FC<{
-  canvasSize: { width: number; height: number; label: string };
+  canvasSize: CanvasSizePreset;
   canvasBackground: string;
   onBackgroundChange: (bg: string) => void;
-}> = ({ canvasSize, canvasBackground, onBackgroundChange }) => (
-  <div className="p-4 space-y-5">
-    <InspectorSection title="Size">
-      <div className="flex items-center justify-between">
-        <span className="text-[12px] text-muted-foreground">{canvasSize.label}</span>
-        <span className="text-[12px] text-muted-foreground tabular-nums">{canvasSize.width}px × {canvasSize.height}px</span>
-      </div>
-    </InspectorSection>
+  designTitle: string;
+  onDesignTitleChange: (title: string) => void;
+  gridEnabled: boolean;
+  onGridToggle: (on: boolean) => void;
+  alignmentGuides: boolean;
+  onAlignmentGuidesToggle: (on: boolean) => void;
+  bleedEnabled: boolean;
+  onBleedToggle: (on: boolean) => void;
+  folds: string;
+  onFoldsChange: (folds: string) => void;
+  mode: EditorMode;
+}> = ({
+  canvasSize,
+  canvasBackground,
+  onBackgroundChange,
+  designTitle,
+  onDesignTitleChange,
+  gridEnabled,
+  onGridToggle,
+  alignmentGuides,
+  onAlignmentGuidesToggle,
+  bleedEnabled,
+  onBleedToggle,
+  folds,
+  onFoldsChange,
+  mode,
+}) => {
+  const [bgType, setBgType] = React.useState<"solid" | "gradient" | "image">("solid");
 
-    <InspectorSection title="Background">
-      <div className="flex items-center justify-between">
-        <span className="text-[12px] text-muted-foreground">Color</span>
+  return (
+    <div className="p-4 space-y-5">
+      {/* Size */}
+      <InspectorSection title="Size">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-medium text-foreground">{canvasSize.label}</p>
+            <p className="text-[11px] text-muted-foreground">{canvasSize.description || `${canvasSize.width} × ${canvasSize.height}`}</p>
+          </div>
+        </div>
+      </InspectorSection>
+
+      {/* Styles */}
+      <InspectorSection title="Styles">
+        <button className="w-full h-9 rounded-lg border border-dashed border-editor-inspector-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-[12px]">
+          <Plus size={14} />
+          Add style
+        </button>
+      </InspectorSection>
+
+      {/* Background */}
+      <InspectorSection title="Background">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-muted-foreground">Type</span>
+            <select
+              value={bgType}
+              onChange={(e) => setBgType(e.target.value as "solid" | "gradient" | "image")}
+              className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="solid">Solid Color</option>
+              <option value="gradient">Gradient</option>
+              <option value="image">Image</option>
+            </select>
+          </div>
+          {bgType === "solid" && (
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-muted-foreground">Color</span>
+              <input
+                type="color"
+                value={canvasBackground.startsWith("#") ? canvasBackground : "#ffffff"}
+                onChange={(e) => onBackgroundChange(e.target.value)}
+                className="w-8 h-8 rounded-md border border-editor-inspector-border cursor-pointer"
+              />
+            </div>
+          )}
+          {bgType === "gradient" && (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+                "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+                "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+                "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+              ].map((gradient, i) => (
+                <button
+                  key={i}
+                  onClick={() => onBackgroundChange(gradient)}
+                  className={`w-full aspect-square rounded-md border transition-transform hover:scale-105 ${canvasBackground === gradient ? "border-primary ring-2 ring-primary/30" : "border-editor-inspector-border"}`}
+                  style={{ background: gradient }}
+                />
+              ))}
+            </div>
+          )}
+          {bgType === "image" && (
+            <div className="text-[12px] text-muted-foreground text-center py-3">
+              Upload or choose a background image from the Media panel.
+            </div>
+          )}
+        </div>
+      </InspectorSection>
+
+      {/* Title */}
+      <InspectorSection title="Title">
         <input
-          type="color"
-          value={canvasBackground.startsWith("#") ? canvasBackground : "#ffffff"}
-          onChange={(e) => onBackgroundChange(e.target.value)}
-          className="w-8 h-8 rounded-md border border-editor-inspector-border cursor-pointer"
+          type="text"
+          value={designTitle}
+          onChange={(e) => onDesignTitleChange(e.target.value)}
+          className="w-full h-9 px-3 text-[13px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
         />
-      </div>
-    </InspectorSection>
+      </InspectorSection>
 
-    <InspectorSection title="Layout">
-      <div className="space-y-3">
-        <ToggleRow label="Grid" defaultOn={false} />
-        <ToggleRow label="Alignment Guides" defaultOn={true} />
-      </div>
-    </InspectorSection>
-  </div>
-);
+      {/* Layout */}
+      <InspectorSection title="Layout">
+        <div className="space-y-3">
+          <ToggleRow label="Grid" on={gridEnabled} onToggle={onGridToggle} />
+          {mode === "image" && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-muted-foreground">Folds</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={folds}
+                    onChange={(e) => onFoldsChange(e.target.value)}
+                    className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="none">None</option>
+                    <option value="bi-fold">Bi-fold</option>
+                    <option value="tri-fold">Tri-fold</option>
+                    <option value="z-fold">Z-fold</option>
+                  </select>
+                </div>
+              </div>
+              <ToggleRow label="Bleed" on={bleedEnabled} onToggle={onBleedToggle} />
+            </>
+          )}
+          <ToggleRow label="Alignment Guides" on={alignmentGuides} onToggle={onAlignmentGuidesToggle} />
+        </div>
+      </InspectorSection>
+    </div>
+  );
+};
 
 interface ElementInspectorProps {
   element: CanvasElement;
@@ -346,19 +495,16 @@ const InspectorSection: React.FC<{ title: string; children: React.ReactNode }> =
   </div>
 );
 
-const ToggleRow: React.FC<{ label: string; defaultOn: boolean }> = ({ label, defaultOn }) => {
-  const [on, setOn] = React.useState(defaultOn);
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-[12px] text-muted-foreground">{label}</span>
-      <button
-        onClick={() => setOn(!on)}
-        className={`w-10 h-5 rounded-full transition-colors duration-200 relative ${on ? "bg-primary" : "bg-muted"}`}
-      >
-        <div
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-primary-foreground shadow transition-transform duration-200 ${on ? "translate-x-5" : "translate-x-0.5"}`}
-        />
-      </button>
-    </div>
-  );
-};
+const ToggleRow: React.FC<{ label: string; on: boolean; onToggle: (on: boolean) => void }> = ({ label, on, onToggle }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-[12px] text-muted-foreground">{label}</span>
+    <button
+      onClick={() => onToggle(!on)}
+      className={`w-10 h-5 rounded-full transition-colors duration-200 relative ${on ? "bg-primary" : "bg-muted"}`}
+    >
+      <div
+        className={`absolute top-0.5 w-4 h-4 rounded-full bg-primary-foreground shadow transition-transform duration-200 ${on ? "translate-x-5" : "translate-x-0.5"}`}
+      />
+    </button>
+  </div>
+);
