@@ -1,12 +1,14 @@
 import React, { useRef } from "react";
 import { Search, Plus, Square, Circle, Triangle, Minus } from "lucide-react";
-import type { ToolType, CanvasElement } from "./EditorShell";
+import type { ToolType, CanvasElement, EditorMode, CanvasSizePreset } from "./EditorShell";
 
 interface ToolbarSidePanelProps {
   activeTool: ToolType;
   onAddElement: (el: Omit<CanvasElement, "id">) => void;
   onBackgroundChange: (bg: string) => void;
   canvasBackground: string;
+  mode: EditorMode;
+  onCanvasSizeChange: (preset: CanvasSizePreset) => void;
 }
 
 export const ToolbarSidePanel: React.FC<ToolbarSidePanelProps> = ({
@@ -14,6 +16,8 @@ export const ToolbarSidePanel: React.FC<ToolbarSidePanelProps> = ({
   onAddElement,
   onBackgroundChange,
   canvasBackground,
+  mode,
+  onCanvasSizeChange,
 }) => {
   switch (activeTool) {
     case "templates":
@@ -21,9 +25,9 @@ export const ToolbarSidePanel: React.FC<ToolbarSidePanelProps> = ({
     case "text":
       return <TextPanel onAddElement={onAddElement} />;
     case "media":
-      return <MediaPanel onAddElement={onAddElement} />;
+      return <MediaPanel onAddElement={onAddElement} mode={mode} />;
     case "uploads":
-      return <UploadsPanel onAddElement={onAddElement} />;
+      return <UploadsPanel onAddElement={onAddElement} mode={mode} />;
     case "background":
       return <BackgroundPanel onBackgroundChange={onBackgroundChange} canvasBackground={canvasBackground} />;
     case "ai":
@@ -31,7 +35,7 @@ export const ToolbarSidePanel: React.FC<ToolbarSidePanelProps> = ({
     case "draw":
       return <DrawPanel onAddElement={onAddElement} />;
     case "layout":
-      return <LayoutPanel />;
+      return <LayoutPanel mode={mode} onCanvasSizeChange={onCanvasSizeChange} />;
     default:
       return (
         <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
@@ -152,8 +156,7 @@ const TextPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => voi
   );
 };
 
-const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
-  // Stock placeholder images
+const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void; mode: EditorMode }> = ({ onAddElement, mode }) => {
   const stockImages = [
     "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
     "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop",
@@ -165,7 +168,7 @@ const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => vo
 
   return (
     <div>
-      <SearchBar placeholder="Search photos & videos..." />
+      <SearchBar placeholder={mode === "video" ? "Search photos & videos..." : "Search photos..."} />
       <div className="grid grid-cols-2 gap-2">
         {stockImages.map((src, i) => (
           <div
@@ -188,7 +191,7 @@ const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => vo
   );
 };
 
-const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
+const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void; mode: EditorMode }> = ({ onAddElement, mode }) => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,7 +221,7 @@ const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => 
 
   return (
     <div className="space-y-4">
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      <input ref={fileRef} type="file" accept={mode === "video" ? "image/*,video/*" : "image/*"} className="hidden" onChange={handleFileChange} />
       <button
         onClick={() => fileRef.current?.click()}
         className="w-full h-24 rounded-lg border-2 border-dashed border-editor-toolbar-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
@@ -227,7 +230,9 @@ const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => 
         <span className="text-[13px] font-medium">Upload files</span>
       </button>
       <p className="text-[11px] text-muted-foreground text-center">
-        Drag & drop or click to upload images and videos
+        {mode === "video"
+          ? "Drag & drop or click to upload images and videos"
+          : "Drag & drop or click to upload images"}
       </p>
     </div>
   );
@@ -336,29 +341,47 @@ const DrawPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => voi
   );
 };
 
-const LayoutPanel: React.FC = () => (
-  <div className="space-y-4">
-    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">Canvas Size</p>
-    <div className="space-y-2">
-      {[
-        { label: "Instagram Post", size: "1080 × 1080" },
-        { label: "Facebook Post", size: "1200 × 630" },
-        { label: "Twitter Post", size: "1200 × 675" },
-        { label: "YouTube Thumbnail", size: "1280 × 720" },
-        { label: "A4 Portrait", size: "2480 × 3508" },
-        { label: "Story / Reel", size: "1080 × 1920" },
-      ].map((item) => (
-        <div
-          key={item.label}
-          className="flex items-center justify-between p-3 rounded-lg border border-editor-toolbar-border hover:border-primary/50 cursor-pointer transition-colors"
-        >
-          <span className="text-[13px] text-foreground">{item.label}</span>
-          <span className="text-[11px] text-muted-foreground tabular-nums">{item.size}</span>
-        </div>
-      ))}
+const IMAGE_SIZES: CanvasSizePreset[] = [
+  { label: "Flyer (US Letter)", width: 2550, height: 3300, description: "8.5in × 11in" },
+  { label: "Instagram Post", width: 1080, height: 1080, description: "1080 × 1080" },
+  { label: "Facebook Post", width: 1200, height: 630, description: "1200 × 630" },
+  { label: "Twitter/X Post", width: 1200, height: 675, description: "1200 × 675" },
+  { label: "YouTube Thumbnail", width: 1280, height: 720, description: "1280 × 720" },
+  { label: "A4 Portrait", width: 2480, height: 3508, description: "210mm × 297mm" },
+  { label: "Poster (24×36)", width: 2400, height: 3600, description: "24in × 36in" },
+  { label: "Business Card", width: 1050, height: 600, description: "3.5in × 2in" },
+];
+
+const VIDEO_SIZES: CanvasSizePreset[] = [
+  { label: "Instagram Reel", width: 1080, height: 1920, description: "9:16 vertical" },
+  { label: "YouTube Video", width: 1920, height: 1080, description: "16:9 landscape" },
+  { label: "TikTok Video", width: 1080, height: 1920, description: "9:16 vertical" },
+  { label: "Facebook Story", width: 1080, height: 1920, description: "9:16 vertical" },
+  { label: "Square Video", width: 1080, height: 1080, description: "1:1 square" },
+  { label: "Twitter/X Video", width: 1200, height: 675, description: "16:9 landscape" },
+];
+
+const LayoutPanel: React.FC<{ mode: EditorMode; onCanvasSizeChange: (preset: CanvasSizePreset) => void }> = ({ mode, onCanvasSizeChange }) => {
+  const sizes = mode === "video" ? VIDEO_SIZES : IMAGE_SIZES;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">Canvas Size</p>
+      <div className="space-y-2">
+        {sizes.map((item) => (
+          <div
+            key={item.label}
+            onClick={() => onCanvasSizeChange(item)}
+            className="flex items-center justify-between p-3 rounded-lg border border-editor-toolbar-border hover:border-primary/50 cursor-pointer transition-colors"
+          >
+            <span className="text-[13px] text-foreground">{item.label}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{item.description || `${item.width} × ${item.height}`}</span>
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AIPanel: React.FC = () => (
   <div className="space-y-4">

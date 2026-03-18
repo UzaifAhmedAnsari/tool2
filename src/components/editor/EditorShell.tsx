@@ -7,10 +7,18 @@ import { TimelineBar } from "./TimelineBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export type ToolType = "uploads" | "templates" | "media" | "text" | "ai" | "background" | "layout" | "record" | "draw" | "slideshow" | "qrcode";
+export type EditorMode = "image" | "video";
+
+export interface CanvasSizePreset {
+  label: string;
+  width: number;
+  height: number;
+  description?: string;
+}
 
 export interface CanvasElement {
   id: string;
-  type: "text" | "image" | "shape";
+  type: "text" | "image" | "shape" | "video";
   x: number;
   y: number;
   width: number;
@@ -31,6 +39,9 @@ export interface CanvasElement {
   lineHeight?: number;
   letterSpacing?: number;
   shapeType?: "rectangle" | "circle" | "triangle" | "line";
+  // Video-specific
+  duration?: number;
+  startTime?: number;
 }
 
 interface HistoryEntry {
@@ -41,15 +52,31 @@ interface HistoryEntry {
 let nextId = 1;
 const generateId = () => String(nextId++);
 
-export const EditorShell: React.FC = () => {
+interface EditorShellProps {
+  mode: EditorMode;
+  initialSize: CanvasSizePreset;
+  onBack: () => void;
+}
+
+export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onBack }) => {
   const isMobile = useIsMobile();
   const [activeTool, setActiveTool] = React.useState<ToolType | null>(null);
   const [selectedElementId, setSelectedElementId] = React.useState<string | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
   const [zoom, setZoom] = React.useState(82);
   const [mobilePanel, setMobilePanel] = React.useState<"toolbar" | "inspector" | null>(null);
-  const [canvasSize, setCanvasSize] = React.useState({ width: 1080, height: 1080, label: "Instagram Post" });
+  const [canvasSize, setCanvasSize] = React.useState<CanvasSizePreset>(initialSize);
   const [canvasBackground, setCanvasBackground] = React.useState("#FFFFFF");
+  const [designTitle, setDesignTitle] = React.useState("A New Design");
+  const [gridEnabled, setGridEnabled] = React.useState(false);
+  const [alignmentGuides, setAlignmentGuides] = React.useState(true);
+  const [bleedEnabled, setBleedEnabled] = React.useState(false);
+  const [folds, setFolds] = React.useState<string>("none");
+
+  // Video-specific state
+  const [videoDuration, setVideoDuration] = React.useState(10); // seconds
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
 
   const [elements, setElements] = React.useState<CanvasElement[]>([]);
 
@@ -96,8 +123,13 @@ export const EditorShell: React.FC = () => {
       setActiveTool(tool);
       setMobilePanel("toolbar");
     } else {
-      setActiveTool(tool);
-      setSidebarExpanded(true);
+      if (activeTool === tool && sidebarExpanded) {
+        setSidebarExpanded(false);
+        setActiveTool(null);
+      } else {
+        setActiveTool(tool);
+        setSidebarExpanded(true);
+      }
     }
   };
 
@@ -171,10 +203,16 @@ export const EditorShell: React.FC = () => {
     }
   }, [isMobile]);
 
+  const handleCanvasSizeChange = useCallback((preset: CanvasSizePreset) => {
+    setCanvasSize(preset);
+  }, []);
+
   // Keyboard shortcuts
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const contentEditable = (e.target as HTMLElement)?.getAttribute?.('contenteditable');
+      if (contentEditable === 'true') return;
       
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
@@ -194,10 +232,15 @@ export const EditorShell: React.FC = () => {
         e.preventDefault();
         if (selectedElementId) duplicateElement(selectedElementId);
       }
+      // Space to play/pause for video mode
+      if (mode === "video" && e.key === " " && !selectedElementId) {
+        e.preventDefault();
+        setIsPlaying(p => !p);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo, selectedElementId, deleteElement, duplicateElement]);
+  }, [undo, redo, selectedElementId, deleteElement, duplicateElement, mode]);
 
   // Mobile layout
   if (isMobile) {
@@ -209,6 +252,8 @@ export const EditorShell: React.FC = () => {
           canUndo={canUndo}
           canRedo={canRedo}
           isMobile={isMobile}
+          mode={mode}
+          onBack={onBack}
         />
 
         <div className="flex-1 relative overflow-hidden">
@@ -221,6 +266,9 @@ export const EditorShell: React.FC = () => {
             onZoomChange={setZoom}
             canvasSize={canvasSize}
             canvasBackground={canvasBackground}
+            gridEnabled={gridEnabled}
+            alignmentGuides={alignmentGuides}
+            bleedEnabled={bleedEnabled}
           />
         </div>
 
@@ -241,6 +289,8 @@ export const EditorShell: React.FC = () => {
                 onAddElement={addElement}
                 onBackgroundChange={handleBackgroundChange}
                 canvasBackground={canvasBackground}
+                mode={mode}
+                onCanvasSizeChange={handleCanvasSizeChange}
               />
             </div>
           </div>
@@ -266,6 +316,17 @@ export const EditorShell: React.FC = () => {
                 canvasSize={canvasSize}
                 canvasBackground={canvasBackground}
                 onBackgroundChange={handleBackgroundChange}
+                designTitle={designTitle}
+                onDesignTitleChange={setDesignTitle}
+                gridEnabled={gridEnabled}
+                onGridToggle={setGridEnabled}
+                alignmentGuides={alignmentGuides}
+                onAlignmentGuidesToggle={setAlignmentGuides}
+                bleedEnabled={bleedEnabled}
+                onBleedToggle={setBleedEnabled}
+                folds={folds}
+                onFoldsChange={setFolds}
+                mode={mode}
                 isMobile
               />
             </div>
@@ -282,6 +343,8 @@ export const EditorShell: React.FC = () => {
           onAddElement={addElement}
           onBackgroundChange={handleBackgroundChange}
           canvasBackground={canvasBackground}
+          mode={mode}
+          onCanvasSizeChange={handleCanvasSizeChange}
         />
       </div>
     );
@@ -296,6 +359,8 @@ export const EditorShell: React.FC = () => {
         canUndo={canUndo}
         canRedo={canRedo}
         isMobile={false}
+        mode={mode}
+        onBack={onBack}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -307,6 +372,8 @@ export const EditorShell: React.FC = () => {
           onAddElement={addElement}
           onBackgroundChange={handleBackgroundChange}
           canvasBackground={canvasBackground}
+          mode={mode}
+          onCanvasSizeChange={handleCanvasSizeChange}
         />
 
         <CanvasStage
@@ -318,6 +385,9 @@ export const EditorShell: React.FC = () => {
           onZoomChange={setZoom}
           canvasSize={canvasSize}
           canvasBackground={canvasBackground}
+          gridEnabled={gridEnabled}
+          alignmentGuides={alignmentGuides}
+          bleedEnabled={bleedEnabled}
         />
 
         <Inspector
@@ -329,15 +399,36 @@ export const EditorShell: React.FC = () => {
           canvasSize={canvasSize}
           canvasBackground={canvasBackground}
           onBackgroundChange={handleBackgroundChange}
+          designTitle={designTitle}
+          onDesignTitleChange={setDesignTitle}
+          gridEnabled={gridEnabled}
+          onGridToggle={setGridEnabled}
+          alignmentGuides={alignmentGuides}
+          onAlignmentGuidesToggle={setAlignmentGuides}
+          bleedEnabled={bleedEnabled}
+          onBleedToggle={setBleedEnabled}
+          folds={folds}
+          onFoldsChange={setFolds}
+          mode={mode}
         />
       </div>
 
-      <TimelineBar />
+      {mode === "video" && (
+        <TimelineBar
+          duration={videoDuration}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          onTimeChange={setCurrentTime}
+          onPlayPause={() => setIsPlaying(p => !p)}
+          onDurationChange={setVideoDuration}
+          elements={elements}
+        />
+      )}
     </div>
   );
 };
 
-// Mobile tool content - simplified panels for mobile
+// Mobile tool content
 import { ToolbarSidePanel } from "./ToolbarSidePanel";
 
 interface MobileToolContentProps {
@@ -345,15 +436,19 @@ interface MobileToolContentProps {
   onAddElement: (el: Omit<CanvasElement, "id">) => void;
   onBackgroundChange: (bg: string) => void;
   canvasBackground: string;
+  mode: EditorMode;
+  onCanvasSizeChange: (preset: CanvasSizePreset) => void;
 }
 
-const MobileToolContent: React.FC<MobileToolContentProps> = ({ activeTool, onAddElement, onBackgroundChange, canvasBackground }) => {
+const MobileToolContent: React.FC<MobileToolContentProps> = ({ activeTool, onAddElement, onBackgroundChange, canvasBackground, mode, onCanvasSizeChange }) => {
   return (
     <ToolbarSidePanel
       activeTool={activeTool}
       onAddElement={onAddElement}
       onBackgroundChange={onBackgroundChange}
       canvasBackground={canvasBackground}
+      mode={mode}
+      onCanvasSizeChange={onCanvasSizeChange}
     />
   );
 };

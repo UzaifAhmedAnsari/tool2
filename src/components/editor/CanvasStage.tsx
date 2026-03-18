@@ -11,6 +11,9 @@ interface CanvasStageProps {
   onZoomChange: (zoom: number) => void;
   canvasSize: { width: number; height: number; label: string };
   canvasBackground: string;
+  gridEnabled?: boolean;
+  alignmentGuides?: boolean;
+  bleedEnabled?: boolean;
 }
 
 export const CanvasStage: React.FC<CanvasStageProps> = ({
@@ -22,6 +25,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   onZoomChange,
   canvasSize,
   canvasBackground,
+  gridEnabled,
+  bleedEnabled,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +40,13 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     onZoomChange(Math.round(Math.min(fitZoom, 150)));
   }, [canvasSize, onZoomChange]);
 
+  // Auto-fit on mount and canvas size change
+  React.useEffect(() => {
+    fitToScreen();
+  }, [canvasSize.width, canvasSize.height]);
+
+  const scale = zoom / 100;
+
   return (
     <div
       ref={containerRef}
@@ -47,8 +59,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         <div
           className="relative shrink-0 rounded-sm overflow-hidden"
           style={{
-            width: canvasSize.width * (zoom / 100),
-            height: canvasSize.height * (zoom / 100),
+            width: canvasSize.width * scale,
+            height: canvasSize.height * scale,
             boxShadow: "0 20px 60px -12px rgba(0,0,0,0.4)",
             background: canvasBackground,
           }}
@@ -57,7 +69,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             onSelectElement(null);
           }}
         >
-          {/* Transparent background pattern (checkerboard) */}
+          {/* Transparent background pattern */}
           {canvasBackground === "transparent" && (
             <div
               className="absolute inset-0"
@@ -70,6 +82,34 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
                 `,
                 backgroundSize: "20px 20px",
                 backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+              }}
+            />
+          )}
+
+          {/* Grid overlay */}
+          {gridEnabled && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)
+                `,
+                backgroundSize: `${50 * scale}px ${50 * scale}px`,
+              }}
+            />
+          )}
+
+          {/* Bleed area indicator */}
+          {bleedEnabled && (
+            <div
+              className="absolute pointer-events-none border-2 border-dashed"
+              style={{
+                top: 18 * scale,
+                left: 18 * scale,
+                right: 18 * scale,
+                bottom: 18 * scale,
+                borderColor: "rgba(255,0,0,0.3)",
               }}
             />
           )}
@@ -94,6 +134,13 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
           {zoom}%
         </span>
         <button
+          onClick={fitToScreen}
+          className="p-2 hover:bg-accent rounded-md transition-colors"
+          title="Fit to screen"
+        >
+          <Maximize size={16} strokeWidth={1.5} className="text-muted-foreground" />
+        </button>
+        <button
           onClick={() => onZoomChange(Math.min(200, zoom + 10))}
           className="p-2 hover:bg-accent rounded-md transition-colors"
         >
@@ -104,12 +151,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
           className="p-2 hover:bg-accent rounded-md transition-colors"
         >
           <ZoomOut size={16} strokeWidth={1.5} className="text-muted-foreground" />
-        </button>
-        <button
-          onClick={fitToScreen}
-          className="p-2 hover:bg-accent rounded-md transition-colors"
-        >
-          <Maximize size={16} strokeWidth={1.5} className="text-muted-foreground" />
         </button>
       </div>
     </div>
@@ -133,7 +174,6 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
 }) => {
   const scale = zoom / 100;
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, elX: 0, elY: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0, handle: "" });
@@ -163,7 +203,6 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
   const handleResizeMouseDown = (e: React.MouseEvent, handle: string) => {
     e.stopPropagation();
     e.preventDefault();
-    setIsResizing(true);
     resizeStart.current = { x: e.clientX, y: e.clientY, w: element.width, h: element.height, handle };
 
     const handleMove = (ev: MouseEvent) => {
@@ -183,7 +222,6 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
       onUpdate(updates);
     };
     const handleUp = () => {
-      setIsResizing(false);
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
     };

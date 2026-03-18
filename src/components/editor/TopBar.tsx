@@ -10,6 +10,7 @@ import {
   HelpCircle,
   MoreHorizontal,
 } from "lucide-react";
+import type { EditorMode } from "./EditorShell";
 
 interface TopBarProps {
   undo: () => void;
@@ -17,17 +18,21 @@ interface TopBarProps {
   canUndo: boolean;
   canRedo: boolean;
   isMobile: boolean;
+  mode: EditorMode;
+  onBack: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, isMobile }) => {
+export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, isMobile, mode, onBack }) => {
   if (isMobile) {
     return (
       <header className="h-12 flex items-center justify-between px-3 bg-editor-topbar border-b border-editor-topbar-border shrink-0 z-20">
         <div className="flex items-center gap-2">
-          <button className="p-1.5 rounded-md hover:bg-accent transition-colors">
+          <button onClick={onBack} className="p-1.5 rounded-md hover:bg-accent transition-colors">
             <ArrowLeft size={18} strokeWidth={1.5} className="text-foreground" />
           </button>
-          <span className="text-sm font-semibold text-foreground">Editor</span>
+          <span className="text-sm font-semibold text-foreground">
+            {mode === "video" ? "Video Editor" : "Image Editor"}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -59,7 +64,7 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
   return (
     <header className="h-14 flex items-center justify-between px-4 bg-editor-topbar border-b border-editor-topbar-border shrink-0 z-20">
       <div className="flex items-center gap-3">
-        <button className="p-2 rounded-md hover:bg-accent transition-colors duration-100">
+        <button onClick={onBack} className="p-2 rounded-md hover:bg-accent transition-colors duration-100">
           <ArrowLeft size={18} strokeWidth={1.5} className="text-foreground" />
         </button>
 
