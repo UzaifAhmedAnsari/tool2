@@ -62,12 +62,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   mode,
   onCanvasSizeChange,
 }) => {
-  const filteredTools = tools.filter(t => t.modes.includes(mode));
+  const filteredTools = tools.filter((t) => t.modes.includes(mode));
 
   // Mobile: horizontal bottom toolbar
   if (isMobile) {
     return (
-      <div className="h-[60px] bg-editor-toolbar border-t border-editor-toolbar-border flex items-center px-2 gap-0.5 overflow-x-auto scrollbar-hide shrink-0 z-20">
+      <div className="h-[60px] bg-background border-t border-border flex items-center px-2 gap-0.5 overflow-x-auto scrollbar-hide shrink-0 z-20">
         {filteredTools.map((tool) => (
           <button
             key={tool.id}
@@ -75,7 +75,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`
               flex flex-col items-center justify-center min-w-[56px] h-[52px] rounded-lg
               transition-colors duration-100 cursor-pointer shrink-0
-              ${activeTool === tool.id ? "bg-accent text-primary" : "text-muted-foreground"}
+              ${activeTool === tool.id ? "bg-primary/10 text-primary" : "text-muted-foreground"}
             `}
           >
             <tool.icon size={18} strokeWidth={1.5} />
@@ -91,7 +91,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // Desktop
   return (
     <div className="flex shrink-0 h-full">
-      <div className="w-[72px] bg-editor-toolbar border-r border-editor-toolbar-border flex flex-col items-center py-2 gap-0.5 overflow-y-auto scrollbar-hide">
+      <div className="w-[72px] bg-background border-r border-border flex flex-col items-center py-2 gap-0.5 overflow-y-auto scrollbar-hide">
         {filteredTools.map((tool) => {
           const isActive = activeTool === tool.id && sidebarExpanded;
           return (
@@ -101,7 +101,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               className={`
                 flex flex-col items-center justify-center w-[62px] h-[62px] rounded-lg
                 transition-colors duration-100 cursor-pointer group
-                ${isActive ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}
+                ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}
               `}
             >
               <tool.icon size={20} strokeWidth={1.5} />
@@ -114,8 +114,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {sidebarExpanded && activeTool && (
-        <div className="w-[280px] lg:w-[320px] bg-editor-toolbar border-r border-editor-toolbar-border flex flex-col relative">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-editor-toolbar-border">
+        <div className="w-[280px] lg:w-[320px] bg-background border-r border-border flex flex-col relative">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h3 className="text-sm font-semibold text-foreground capitalize">
               {activeTool === "qrcode" ? "QR Code" : activeTool === "ai" ? "AI" : activeTool}
             </h3>
