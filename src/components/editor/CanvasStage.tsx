@@ -40,7 +40,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     onZoomChange(Math.round(Math.min(fitZoom, 150)));
   }, [canvasSize, onZoomChange]);
 
-  // Auto-fit on mount and canvas size change
   React.useEffect(() => {
     fitToScreen();
   }, [canvasSize.width, canvasSize.height]);
@@ -54,14 +53,13 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       style={{ backgroundColor: "hsl(var(--editor-canvas-bg))" }}
       onClick={() => onSelectElement(null)}
     >
-      {/* Canvas container */}
       <div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 md:p-8">
         <div
           className="relative shrink-0 rounded-sm overflow-hidden"
           style={{
             width: canvasSize.width * scale,
             height: canvasSize.height * scale,
-            boxShadow: "0 20px 60px -12px rgba(0,0,0,0.4)",
+            boxShadow: "0 4px 40px -8px rgba(0,0,0,0.25)",
             background: canvasBackground,
           }}
           onClick={(e) => {
@@ -86,21 +84,19 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             />
           )}
 
-          {/* Grid overlay */}
           {gridEnabled && (
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
                 backgroundImage: `
-                  linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)
+                  linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px)
                 `,
                 backgroundSize: `${50 * scale}px ${50 * scale}px`,
               }}
             />
           )}
 
-          {/* Bleed area indicator */}
           {bleedEnabled && (
             <div
               className="absolute pointer-events-none border-2 border-dashed"
@@ -114,7 +110,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             />
           )}
 
-          {/* Canvas elements */}
           {elements.map((el) => (
             <CanvasElementRenderer
               key={el.id}
@@ -129,17 +124,10 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       </div>
 
       {/* Zoom controls */}
-      <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1 bg-editor-toolbar border border-editor-toolbar-border rounded-lg shadow-lg">
-        <span className="text-[12px] font-medium text-muted-foreground px-2 tabular-nums min-w-[40px] text-center">
+      <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex flex-col items-center gap-0.5 bg-background border border-border rounded-lg shadow-lg">
+        <span className="text-[11px] font-medium text-muted-foreground px-2 pt-1.5 tabular-nums">
           {zoom}%
         </span>
-        <button
-          onClick={fitToScreen}
-          className="p-2 hover:bg-accent rounded-md transition-colors"
-          title="Fit to screen"
-        >
-          <Maximize size={16} strokeWidth={1.5} className="text-muted-foreground" />
-        </button>
         <button
           onClick={() => onZoomChange(Math.min(200, zoom + 10))}
           className="p-2 hover:bg-accent rounded-md transition-colors"
@@ -157,6 +145,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   );
 };
 
+// ── Element Renderer ──
 interface CanvasElementRendererProps {
   element: CanvasElement;
   isSelected: boolean;
@@ -231,20 +220,12 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (element.type === "text") {
-      setIsEditing(true);
-    }
+    if (element.type === "text") setIsEditing(true);
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     setIsEditing(false);
     onUpdate({ content: e.currentTarget.textContent || "" });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setIsEditing(false);
-    }
   };
 
   const commonStyle: React.CSSProperties = {
@@ -263,24 +244,25 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
           contentEditable={isEditing}
           suppressContentEditableWarning
           onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => { if (e.key === "Escape") setIsEditing(false); }}
           style={{
             fontSize: (element.fontSize || 24) * scale,
             fontFamily: element.fontFamily || "sans-serif",
             fontWeight: element.fontWeight || "400",
             color: element.color || "#000000",
             lineHeight: element.lineHeight || 1.2,
-            letterSpacing: element.letterSpacing ? `${element.letterSpacing}px` : undefined,
+            letterSpacing: element.letterSpacing ? `${element.letterSpacing * scale}px` : undefined,
             textAlign: element.textAlign || "center",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
             width: "100%",
             height: "100%",
-            outline: isEditing ? "2px solid hsl(var(--editor-active))" : "none",
+            outline: isEditing ? "2px solid hsl(var(--primary))" : "none",
             cursor: isEditing ? "text" : "move",
             display: "flex",
             alignItems: "center",
-            justifyContent: element.textAlign === "left" ? "flex-start" : element.textAlign === "right" ? "flex-end" : "center",
+            justifyContent:
+              element.textAlign === "left" ? "flex-start" : element.textAlign === "right" ? "flex-end" : "center",
           }}
         >
           {element.content}
@@ -293,29 +275,36 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
         width: "100%",
         height: "100%",
         backgroundColor: element.backgroundColor || "#4488FF",
-        borderRadius: element.shapeType === "circle" ? "50%" : element.borderRadius ? `${element.borderRadius}px` : undefined,
-        border: element.borderWidth ? `${element.borderWidth * scale}px solid ${element.borderColor || "#000"}` : undefined,
+        borderRadius:
+          element.shapeType === "circle" ? "50%" : element.borderRadius ? `${element.borderRadius}px` : undefined,
+        border: element.borderWidth
+          ? `${element.borderWidth * scale}px solid ${element.borderColor || "#000"}`
+          : undefined,
       };
 
       if (element.shapeType === "triangle") {
         return (
-          <div style={{ width: "100%", height: "100%" }}>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
-              <polygon
-                points="50,0 100,100 0,100"
-                fill={element.backgroundColor || "#4488FF"}
-                stroke={element.borderColor}
-                strokeWidth={element.borderWidth || 0}
-              />
-            </svg>
-          </div>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+            <polygon
+              points="50,0 100,100 0,100"
+              fill={element.backgroundColor || "#4488FF"}
+              stroke={element.borderColor}
+              strokeWidth={element.borderWidth || 0}
+            />
+          </svg>
         );
       }
 
       if (element.shapeType === "line") {
         return (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center" }}>
-            <div style={{ width: "100%", height: `${Math.max(2, element.borderWidth || 2) * scale}px`, backgroundColor: element.backgroundColor || "#000" }} />
+            <div
+              style={{
+                width: "100%",
+                height: `${Math.max(2, element.borderWidth || 2) * scale}px`,
+                backgroundColor: element.backgroundColor || "#000",
+              }}
+            />
           </div>
         );
       }
@@ -333,6 +322,9 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
             height: "100%",
             objectFit: "cover",
             borderRadius: element.borderRadius ? `${element.borderRadius}px` : undefined,
+            border: element.borderWidth
+              ? `${element.borderWidth * scale}px solid ${element.borderColor || "#000"}`
+              : undefined,
           }}
           draggable={false}
         />
@@ -359,13 +351,8 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
     >
       {renderContent()}
 
-      {/* Selection outline & handles */}
       {isSelected && !isEditing && (
-        <div
-          className="absolute -inset-[2px] border-2 pointer-events-none"
-          style={{ borderColor: "hsl(var(--editor-active))" }}
-        >
-          {/* Corner handles */}
+        <div className="absolute -inset-[2px] border-2 pointer-events-none" style={{ borderColor: "hsl(var(--primary))" }}>
           {["top-left", "top-right", "bottom-left", "bottom-right"].map((handle) => {
             const pos: React.CSSProperties = {};
             if (handle.includes("top")) pos.top = -5;
@@ -378,14 +365,13 @@ const CanvasElementRenderer: React.FC<CanvasElementRendererProps> = ({
                 className="absolute w-[10px] h-[10px] rounded-sm pointer-events-auto"
                 style={{
                   ...pos,
-                  backgroundColor: "hsl(var(--editor-active))",
+                  backgroundColor: "hsl(var(--primary))",
                   cursor: handle === "top-left" || handle === "bottom-right" ? "nwse-resize" : "nesw-resize",
                 }}
                 onMouseDown={(e) => handleResizeMouseDown(e, handle)}
               />
             );
           })}
-          {/* Edge handles */}
           {["top", "bottom", "left", "right"].map((handle) => {
             const pos: React.CSSProperties = { position: "absolute" };
             if (handle === "top") { pos.top = -3; pos.left = "30%"; pos.right = "30%"; pos.height = 6; pos.cursor = "ns-resize"; }
