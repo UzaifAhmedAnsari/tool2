@@ -65,7 +65,7 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
   }
 
   return (
-    <header className="h-[52px] flex items-center justify-between px-4 bg-primary shrink-0 z-20">
+    <header className="h-[52px] flex items-center justify-between px-4 bg-[#7650e3] shrink-0 z-20">
       <div className="flex items-center gap-2">
         <button onClick={onBack} className="p-2 rounded-md hover:bg-primary-foreground/10 transition-colors duration-100">
           <ArrowLeft size={18} strokeWidth={1.5} className="text-primary-foreground" />

@@ -214,7 +214,7 @@ const Index = () => {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
       {/* Header */}
-      <div className="bg-primary text-primary-foreground">
+      <div className="bg-[#7650e3] text-primary-foreground">
         <div className="max-w-7xl mx-auto px-4 py-8 md:py-12 text-center">
           <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-2">
             Start from a blank design
