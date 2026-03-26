@@ -75,7 +75,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const gridLayerRef = useRef<Konva.Layer | null>(null);
   const shapeRefs = useRef<Map<string, Konva.Shape | Konva.Group>>(new Map());
-  const textInputRef = useRef<HTMLTextAreaElement>(null);
+  const textInputRef = useRef<HTMLDivElement>(null);
   const isEditingRef = useRef(false);
 
   const [inlineEditor, setInlineEditor] = useState<InlineEditorState | null>(
@@ -134,12 +134,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
       // Save changes if requested
       if (save && editingText !== undefined) {
-        const textarea = textInputRef.current;
+        const div = textInputRef.current;
         
-        // Calculate new height based on actual textarea content
+        // Calculate new height based on actual div content
         let nextHeight = inlineEditor.height;
-        if (textarea) {
-          const textHeight = Math.max(inlineEditor.height, textarea.scrollHeight);
+        if (div) {
+          const textHeight = Math.max(inlineEditor.height, div.scrollHeight);
           nextHeight = textHeight / scale;
         }
 
@@ -466,30 +466,37 @@ useEffect(() => {
   useEffect(() => {
     if (!inlineEditor || !textInputRef.current) return;
 
-    const textarea = textInputRef.current;
-    textarea.focus();
+    const div = textInputRef.current;
+    // Set the text content
+    div.innerText = editingText;
+    div.focus();
 
-    const len = textarea.value.length;
-    textarea.setSelectionRange(len, len);
-
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.max(inlineEditor.height, textarea.scrollHeight)}px`;
-  }, [inlineEditor]);
+    // Place cursor at the end without selecting
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (div.firstChild) {
+      range.setStart(div.firstChild, (div.firstChild as Text).length);
+      range.collapse(true);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [inlineEditor, editingText]);
 
   useEffect(() => {
     if (!inlineEditor || !textInputRef.current) return;
 
-    const textarea = textInputRef.current;
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.max(inlineEditor.height, textarea.scrollHeight)}px`;
+    const div = textInputRef.current;
+    // Auto-adjust height based on content
+    div.style.height = "auto";
+    const scrollHeight = div.scrollHeight;
+    div.style.height = `${Math.max(inlineEditor.height, scrollHeight)}px`;
   }, [editingText, inlineEditor]);
 
-  const handleEditingChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setEditingText(e.target.value);
-    },
-    [],
-  );
+  const handleEditingChange = useCallback(() => {
+    if (textInputRef.current) {
+      setEditingText(textInputRef.current.innerText);
+    }
+  }, []);
 
   const handleEditingBlur = useCallback(() => {
     // Close and save immediately when blur happens
@@ -497,7 +504,7 @@ useEffect(() => {
   }, [closeInlineEditing]);
 
   const handleEditingKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       e.stopPropagation();
 
       if (e.key === "Escape") {
@@ -660,10 +667,11 @@ useEffect(() => {
             />
 
             {inlineEditor && (
-              <textarea
+              <div
                 ref={textInputRef}
-                value={editingText}
-                onChange={handleEditingChange}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleEditingChange}
                 onBlur={handleEditingBlur}
                 onKeyDown={handleEditingKeyDown}
                 spellCheck={false}
@@ -678,7 +686,6 @@ useEffect(() => {
                   fontWeight: inlineEditor.fontWeight,
                   color: inlineEditor.color,
                   lineHeight: `${inlineEditor.lineHeight}`,
-                  textAlign: inlineEditor.textAlign,
                   background: "rgba(255,255,255,0.9)",
                   border: "2px solid #3b82f6",
                   borderRadius: "2px",
@@ -694,6 +701,9 @@ useEffect(() => {
                   wordBreak: "break-word",
                   fontVariant: "normal",
                   boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: inlineEditor.textAlign === "left" ? "flex-start" : inlineEditor.textAlign === "center" ? "center" : "flex-end",
                 }}
               />
             )}
