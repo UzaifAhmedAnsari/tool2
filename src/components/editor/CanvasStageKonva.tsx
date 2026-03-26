@@ -74,8 +74,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const gridLayerRef = useRef<Konva.Layer | null>(null);
-  const shapeRefs = useRef<Map<string, Konva.Node>>(new Map());
+  const shapeRefs = useRef<Map<string, Konva.Shape | Konva.Group>>(new Map());
   const textInputRef = useRef<HTMLTextAreaElement>(null);
+  const isEditingRef = useRef(false);
 
   const [inlineEditor, setInlineEditor] = useState<InlineEditorState | null>(
     null,
@@ -95,142 +96,163 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   }, [canvasSize.width, canvasSize.height, scale]);
 
   const getInlineEditorState = useCallback(
-    (element: CanvasElement, node: Konva.Text): InlineEditorState => {
-      const pos = node.absolutePosition();
-      const width = Math.max(
-        20,
-        node.width() * Math.abs(node.scaleX()) * scale,
-      );
-      const height = Math.max(
-        20,
-        node.height() * Math.abs(node.scaleY()) * scale,
-      );
-
-      return {
-        id: element.id,
-        x: pos.x * scale,
-        y: pos.y * scale,
-        width,
-        height,
-        fontSize: element.fontSize || 24,
-        rotation: node.rotation() || 0,
-        fontFamily: element.fontFamily || "sans-serif",
-        fontWeight: element.fontWeight || "normal",
-        color: element.color || "#000000",
-        lineHeight: element.lineHeight || 1.2,
-        textAlign: element.textAlign || "left",
-      };
-    },
-    [scale],
-  );
+  (element: CanvasElement): InlineEditorState => {
+    return {
+      id: element.id,
+      x: element.x * scale,
+      y: element.y * scale,
+      width: Math.max(20, element.width * scale),
+      height: Math.max(20, element.height * scale),
+      fontSize: element.fontSize || 24,
+      rotation: element.rotation || 0,
+      fontFamily: element.fontFamily || "sans-serif",
+      fontWeight: element.fontWeight || "normal",
+      color: element.color || "#000000",
+      lineHeight: element.lineHeight || 1.2,
+      textAlign: element.textAlign || "left",
+    };
+  },
+  [scale],
+);
 
   const startInlineEditing = useCallback(
-    (element: CanvasElement, node: Konva.Text) => {
-      node.hide();
-      layerRef.current?.draw();
+  (element: CanvasElement, node: Konva.Text) => {
+    node.hide();
+    layerRef.current?.draw();
 
-      setEditingText(element.content || "");
-      setInlineEditor(getInlineEditorState(element, node));
-      onSelectElement(element.id);
-    },
-    [getInlineEditorState, onSelectElement],
-  );
+    setEditingText(element.content || "");
+    setInlineEditor(getInlineEditorState(element));   // ← now uses element only
+    isEditingRef.current = true;
+    onSelectElement(element.id);
+  },
+  [getInlineEditorState, onSelectElement],
+);
 
   const closeInlineEditing = useCallback(
     (save: boolean) => {
       if (!inlineEditor) return;
 
-      const node = shapeRefs.current.get(inlineEditor.id);
-      if (node instanceof Konva.Text) {
-        node.show();
-      }
-
-      if (save) {
+      // Save changes if requested
+      if (save && editingText !== undefined) {
         const textarea = textInputRef.current;
-        const nextHeight =
-          textarea != null
-            ? Math.max(inlineEditor.height, textarea.scrollHeight)
-            : inlineEditor.height;
+        
+        // Calculate new height based on actual textarea content
+        let nextHeight = inlineEditor.height;
+        if (textarea) {
+          const textHeight = Math.max(inlineEditor.height, textarea.scrollHeight);
+          nextHeight = textHeight / scale;
+        }
 
+        // Update the element - this will trigger shapes to be recreated
         onUpdateElement(inlineEditor.id, {
           content: editingText,
-          height: Math.max(1, Math.round(nextHeight / scale)),
+          height: Math.max(1, Math.round(nextHeight)),
         });
       }
 
+      // Don't show the node here - let the shapes useEffect recreate it with new content
+      // The old node will be destroyed anyway when shapes are recreated
+      
+      // Clean up editing state  
+      isEditingRef.current = false;
       setInlineEditor(null);
       setEditingText("");
-      layerRef.current?.draw();
     },
     [editingText, inlineEditor, onUpdateElement, scale],
   );
 
   useEffect(() => {
-    if (!konvaContainerRef.current) return;
+  if (!konvaContainerRef.current) return;
 
-    const stage = new Konva.Stage({
-      container: konvaContainerRef.current,
-      width: canvasSize.width,
-      height: canvasSize.height,
-      draggable: false,
-    });
+  const stage = new Konva.Stage({
+    container: konvaContainerRef.current,
+    width: canvasSize.width,
+    height: canvasSize.height,
+    draggable: false,
+  });
 
-    const gridLayer = new Konva.Layer({ listening: false });
-    const layer = new Konva.Layer();
+  const gridLayer = new Konva.Layer({ listening: false });
+  const layer = new Konva.Layer();
 
-    stage.add(gridLayer);
-    stage.add(layer);
+  stage.add(gridLayer);
+  stage.add(layer);
 
-    const transformer = new Konva.Transformer({
-      rotateEnabled: true,
-      boundBoxFunc: (oldBox, newBox) => {
-        if (newBox.width < 20 || newBox.height < 20) {
-          return oldBox;
-        }
-        return newBox;
-      },
-    });
+  const transformer = new Konva.Transformer({
+    rotateEnabled: true,
+    boundBoxFunc: (oldBox, newBox) => {
+      if (newBox.width < 20 || newBox.height < 20) return oldBox;
+      return newBox;
+    },
+  });
 
-    layer.add(transformer);
+  layer.add(transformer);
 
-    stageRef.current = stage;
-    gridLayerRef.current = gridLayer;
-    layerRef.current = layer;
-    transformerRef.current = transformer;
+  stageRef.current = stage;
+  gridLayerRef.current = gridLayer;
+  layerRef.current = layer;
+  transformerRef.current = transformer;
 
-    stage.on(
-      "click tap",
-      (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-        if (e.target === stage) {
-          onSelectElement(null);
-        }
-      },
-    );
+  // ←←← REMOVED the old click handler here (we'll add a better one below)
 
-    return () => {
-      stage.destroy();
-      stageRef.current = null;
-      gridLayerRef.current = null;
-      layerRef.current = null;
-      transformerRef.current = null;
-      shapeRefs.current.clear();
-    };
-  }, [canvasSize.width, canvasSize.height, onSelectElement]);
+  return () => {
+    stage.destroy();
+    stageRef.current = null;
+    gridLayerRef.current = null;
+    layerRef.current = null;
+    transformerRef.current = null;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [canvasSize.width, canvasSize.height, onSelectElement]);
+
+useEffect(() => {
+  const stage = stageRef.current;
+  if (!stage) return;
+
+  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (inlineEditor) {
+      // Clicked anywhere on the canvas while editing → save + close (normal inline behavior)
+      closeInlineEditing(true);
+      return;
+    }
+
+    // Normal deselection when clicking empty canvas
+    if (e.target === stage) {
+      onSelectElement(null);
+    }
+  };
+
+  stage.on("click tap", handleStageClick);
+
+  return () => {
+    stage.off("click tap", handleStageClick);
+  };
+}, [inlineEditor, closeInlineEditing, onSelectElement]);
 
   useEffect(() => {
     syncStageScale();
   }, [syncStageScale]);
 
-  useEffect(() => {
-    if (!inlineEditor) return;
-    const node = shapeRefs.current.get(inlineEditor.id);
-    if (!(node instanceof Konva.Text)) return;
+ useEffect(() => {
+  if (!inlineEditor?.id) return;
 
-    const element = elements.find((el) => el.id === inlineEditor.id);
-    if (!element) return;
+  const element = elements.find((el) => el.id === inlineEditor.id);
+  if (!element) return;
 
-    setInlineEditor(getInlineEditorState(element, node));
-  }, [inlineEditor?.id, elements, zoom, getInlineEditorState, inlineEditor]);
+  const newVisualState = getInlineEditorState(element);
+
+  setInlineEditor((prev) => {
+    if (!prev) return prev;
+    return {
+      ...prev,
+      x: newVisualState.x,
+      y: newVisualState.y,
+      width: newVisualState.width,
+      height: newVisualState.height,
+      fontSize: newVisualState.fontSize,
+      rotation: newVisualState.rotation,
+    };
+  });
+}, [elements, zoom, getInlineEditorState]);
 
   useEffect(() => {
     const layer = layerRef.current;
@@ -248,7 +270,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       layer.add(shape);
       shapeRefs.current.set(element.id, shape);
 
-      shape.on(
+      const node = shape as Konva.Node;
+
+      node.on(
         "click tap",
         (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
           e.cancelBubble = true;
@@ -269,12 +293,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       );
 
       if (element.type === "text" && shape instanceof Konva.Text) {
-        shape.on("dblclick dbltap", () => {
+        node.on("dblclick dbltap", () => {
           startInlineEditing(element, shape);
         });
       }
 
-      shape.on("dragmove", () => {
+      node.on("dragmove", () => {
         if (!gridEnabled) return;
 
         const pos = shape.position();
@@ -286,7 +310,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         layer.draw();
       });
 
-      shape.on("dragend", () => {
+      node.on("dragend", () => {
         const pos = shape.position();
         const nextX = gridEnabled ? snap(pos.x, GRID_SIZE) : pos.x;
         const nextY = gridEnabled ? snap(pos.y, GRID_SIZE) : pos.y;
@@ -299,11 +323,11 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         });
 
         if (inlineEditor?.id === element.id && shape instanceof Konva.Text) {
-          setInlineEditor(getInlineEditorState(element, shape));
+          setInlineEditor(getInlineEditorState(element));
         }
       });
 
-      shape.on("transformend", () => {
+      node.on("transformend", () => {
         const pos = shape.position();
 
         let nextX = pos.x;
@@ -338,7 +362,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         });
 
         if (inlineEditor?.id === element.id && shape instanceof Konva.Text) {
-          setInlineEditor(getInlineEditorState(element, shape));
+          setInlineEditor(getInlineEditorState(element));
         }
       });
 
@@ -468,6 +492,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   );
 
   const handleEditingBlur = useCallback(() => {
+    // Close and save immediately when blur happens
     closeInlineEditing(true);
   }, [closeInlineEditing]);
 
@@ -551,6 +576,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       vv?.removeEventListener("scroll", rerun);
     };
   }, [fitToScreen]);
+
+  
 
   const showTransparentPreview = canvasBackground === "transparent";
   const wrapperBackground =
@@ -642,29 +669,31 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
                 spellCheck={false}
                 className="absolute resize-none overflow-hidden focus:outline-none"
                 style={{
-                  left: inlineEditor.x,
-                  top: inlineEditor.y,
-                  width: inlineEditor.width,
-                  minHeight: inlineEditor.height,
+                  left: `${inlineEditor.x}px`,
+                  top: `${inlineEditor.y}px`,
+                  width: `${Math.max(inlineEditor.width, 50)}px`,
+                  height: `${Math.max(inlineEditor.height, 24)}px`,
                   fontSize: `${inlineEditor.fontSize * scale}px`,
                   fontFamily: inlineEditor.fontFamily,
                   fontWeight: inlineEditor.fontWeight,
                   color: inlineEditor.color,
-                  lineHeight: String(inlineEditor.lineHeight),
+                  lineHeight: `${inlineEditor.lineHeight}`,
                   textAlign: inlineEditor.textAlign,
-                  background: "transparent",
-                  border: "none",
-                  borderRadius: 0,
-                  padding: 0,
+                  background: "rgba(255,255,255,0.9)",
+                  border: "2px solid #3b82f6",
+                  borderRadius: "2px",
+                  padding: "4px 6px",
                   margin: 0,
                   outline: "none",
-                  boxShadow: "none",
+                  boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.2)",
                   overflow: "hidden",
-                  zIndex: 20,
-                  transform: `rotate(${inlineEditor.rotation}deg)`,
+                  zIndex: 1000,
+                  transform: inlineEditor.rotation !== 0 ? `rotate(${inlineEditor.rotation}deg)` : "none",
                   transformOrigin: "top left",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
+                  fontVariant: "normal",
+                  boxSizing: "border-box",
                 }}
               />
             )}
@@ -695,7 +724,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   );
 };
 
-function createKonvaShape(element: CanvasElement): Konva.Node | null {
+
+
+function createKonvaShape(element: CanvasElement): Konva.Shape | Konva.Group | null {
   try {
     const baseConfig = {
       id: element.id,

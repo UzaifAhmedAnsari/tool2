@@ -257,15 +257,15 @@ export const DesignInspector: React.FC<{
                   </select>
                 </div> */}
 
-                <ToggleRow label="Bleed" on={bleedEnabled} onToggle={onBleedToggle} />
+                {/* <ToggleRow label="Bleed" on={bleedEnabled} onToggle={onBleedToggle} /> */}
               </>
             )}
 
-            <ToggleRow
+            {/* <ToggleRow
               label="Alignment Guides"
               on={alignmentGuides}
               onToggle={onAlignmentGuidesToggle}
-            />
+            /> */}
           </div>
         </Section>
       )}
