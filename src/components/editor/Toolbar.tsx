@@ -163,27 +163,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
 
 
-  if (isMobile) {
-    
-    return (
-      <div className="h-[60px] bg-background border-t border-border flex items-center px-2 gap-0.5 overflow-x-auto scrollbar-hide shrink-0 z-20">
-        {filteredTools.map((tool) => (
-          <button
-            key={tool.id}
-            onClick={() => onToolClick(tool.id)}
-            className={`flex flex-col items-center justify-center min-w-[56px] h-[52px] rounded-lg transition-colors duration-100 cursor-pointer shrink-0 ${
-              activeTool === tool.id ? "bg-primary/10 text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <tool.icon size={18} strokeWidth={1.5} />
-            <span className="text-[9px] mt-0.5 font-medium leading-tight whitespace-nowrap">
-              {tool.label}
-            </span>
-          </button>
-        ))}
-      </div>
-    );
-  }
+  if (isMobile) return null;
 
   return (
     <>

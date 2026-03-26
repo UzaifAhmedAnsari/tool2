@@ -69,31 +69,39 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const [inlineEditor, setInlineEditor] = useState<InlineEditorState | null>(null);
+  const [inlineEditor, setInlineEditor] = useState<InlineEditorState | null>(
+    null,
+  );
   const [editingText, setEditingText] = useState("");
 
   const scale = zoom / 100;
 
   const editingElement = useMemo(
     () => elements.find((el) => el.id === inlineEditor?.id) || null,
-    [elements, inlineEditor?.id]
+    [elements, inlineEditor?.id],
   );
 
   const syncStageScale = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    stage.width(canvasSize.width);
-    stage.height(canvasSize.height);
     stage.scale({ x: scale, y: scale });
+    stage.width(canvasSize.width * scale);
+    stage.height(canvasSize.height * scale);
     stage.batchDraw();
   }, [canvasSize.width, canvasSize.height, scale]);
 
   const getInlineEditorState = useCallback(
     (element: CanvasElement, node: Konva.Text): InlineEditorState => {
       const pos = node.absolutePosition();
-      const width = Math.max(20, node.width() * Math.abs(node.scaleX()) * scale);
-      const height = Math.max(20, node.height() * Math.abs(node.scaleY()) * scale);
+      const width = Math.max(
+        20,
+        node.width() * Math.abs(node.scaleX()) * scale,
+      );
+      const height = Math.max(
+        20,
+        node.height() * Math.abs(node.scaleY()) * scale,
+      );
 
       return {
         id: element.id,
@@ -110,7 +118,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         textAlign: element.textAlign || "left",
       };
     },
-    [scale]
+    [scale],
   );
 
   const startInlineEditing = useCallback(
@@ -122,7 +130,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       setInlineEditor(getInlineEditorState(element, node));
       onSelectElement(element.id);
     },
-    [getInlineEditorState, onSelectElement]
+    [getInlineEditorState, onSelectElement],
   );
 
   const closeInlineEditing = useCallback(
@@ -151,7 +159,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       setEditingText("");
       layerRef.current?.batchDraw();
     },
-    [editingText, inlineEditor, onUpdateElement, scale]
+    [editingText, inlineEditor, onUpdateElement, scale],
   );
 
   useEffect(() => {
@@ -159,8 +167,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
     const stage = new Konva.Stage({
       container: konvaContainerRef.current,
-      width: canvasSize.width,
-      height: canvasSize.height,
+      width: canvasSize.width * scale,
+      height: canvasSize.height * scale,
       draggable: false,
     });
 
@@ -183,11 +191,14 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     layerRef.current = layer;
     transformerRef.current = transformer;
 
-    stage.on("click tap", (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-      if (e.target === stage) {
-        onSelectElement(null);
-      }
-    });
+    stage.on(
+      "click tap",
+      (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+        if (e.target === stage) {
+          onSelectElement(null);
+        }
+      },
+    );
 
     return () => {
       stage.destroy();
@@ -196,7 +207,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       transformerRef.current = null;
       shapeRefs.current.clear();
     };
-  }, [canvasSize.width, canvasSize.height, onSelectElement]);
+  }, [canvasSize.width, canvasSize.height, scale, onSelectElement]);
 
   useEffect(() => {
     syncStageScale();
@@ -225,7 +236,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     const backgroundNode = createCanvasBackgroundNode(
       canvasBackground,
       canvasSize.width,
-      canvasSize.height
+      canvasSize.height,
     );
     if (backgroundNode) {
       layer.add(backgroundNode);
@@ -239,21 +250,25 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       layer.add(shape);
       shapeRefs.current.set(element.id, shape);
 
-      shape.on("click tap", (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-        e.cancelBubble = true;
+      shape.on(
+        "click tap",
+        (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+          e.cancelBubble = true;
 
-        if (element.type === "text" && shape instanceof Konva.Text) {
-          const alreadyOnlySelected =
-            selectedElementIds.length === 1 && selectedElementIds[0] === element.id;
+          if (element.type === "text" && shape instanceof Konva.Text) {
+            const alreadyOnlySelected =
+              selectedElementIds.length === 1 &&
+              selectedElementIds[0] === element.id;
 
-          if (alreadyOnlySelected) {
-            startInlineEditing(element, shape);
-            return;
+            if (alreadyOnlySelected) {
+              startInlineEditing(element, shape);
+              return;
+            }
           }
-        }
 
-        onSelectElement(element.id, Boolean((e.evt as MouseEvent)?.shiftKey));
-      });
+          onSelectElement(element.id, Boolean((e.evt as MouseEvent)?.shiftKey));
+        },
+      );
 
       if (element.type === "text" && shape instanceof Konva.Text) {
         shape.on("dblclick dbltap", () => {
@@ -285,8 +300,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
           attrs.width = Math.round(shape.width());
           attrs.height = Math.round(shape.height());
         } else {
-          attrs.width = Math.round((shape.width() || 0) * (shape.scaleX?.() || 1));
-          attrs.height = Math.round((shape.height() || 0) * (shape.scaleY?.() || 1));
+          attrs.width = Math.round(
+            (shape.width() || 0) * (shape.scaleX?.() || 1),
+          );
+          attrs.height = Math.round(
+            (shape.height() || 0) * (shape.scaleY?.() || 1),
+          );
           shape.scaleX(1);
           shape.scaleY(1);
         }
@@ -352,9 +371,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     textarea.style.height = `${Math.max(inlineEditor.height, textarea.scrollHeight)}px`;
   }, [editingText, inlineEditor]);
 
-  const handleEditingChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setEditingText(e.target.value);
-  }, []);
+  const handleEditingChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setEditingText(e.target.value);
+    },
+    [],
+  );
 
   const handleEditingBlur = useCallback(() => {
     closeInlineEditing(true);
@@ -375,7 +397,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         closeInlineEditing(true);
       }
     },
-    [closeInlineEditing]
+    [closeInlineEditing],
   );
 
   const fitToScreen = useCallback(() => {
@@ -400,7 +422,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
     const nextZoom = Math.max(
       isMobileViewport ? 10 : 20,
-      Math.min(Math.round(fitZoom), isMobileViewport ? 100 : 140)
+      Math.min(Math.round(fitZoom), isMobileViewport ? 100 : 140),
     );
 
     onZoomChange(nextZoom);
@@ -450,7 +472,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 min-h-0 min-w-0 overflow-hidden"
+      className="relative flex-1 h-full min-h-0 min-w-0 overflow-hidden"
       style={{
         backgroundColor: "#f7f7f8",
         backgroundImage: "radial-gradient(#d7d9dd 0.8px, transparent 0.8px)",
@@ -458,19 +480,19 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       }}
     >
       <div
-        className="absolute inset-0 overflow-auto"
+        className="absolute inset-0 overflow-y-auto overflow-x-auto"
         style={{
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
         }}
       >
         <div
-          className="min-w-full min-h-full flex items-start justify-center"
+          className="min-w-full min-h-full flex items-center justify-center"
           style={{
             paddingLeft: isMobileViewport ? 8 : 40,
             paddingRight: isMobileViewport ? 8 : 40,
             paddingTop: isMobileViewport ? 8 : 56,
-            paddingBottom: isMobileViewport ? 8 : 40,
+            paddingBottom: isMobileViewport ? 72 : 40,
           }}
         >
           <div
@@ -480,8 +502,10 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
               width: canvasSize.width * scale,
               height: canvasSize.height * scale,
               boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              overflow: "visible",
-              background: showCssBackgroundFallback ? canvasBackground : undefined,
+              overflow: "hidden",
+              background: showCssBackgroundFallback
+                ? canvasBackground
+                : undefined,
             }}
           >
             {showTransparentPreview && (
@@ -531,6 +555,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
               style={{
                 width: canvasSize.width * scale,
                 height: canvasSize.height * scale,
+                overflow: "hidden",
               }}
             />
 
@@ -642,7 +667,14 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
       if (element.shapeType === "triangle") {
         return new Konva.Line({
           ...baseConfig,
-          points: [element.width / 2, 0, element.width, element.height, 0, element.height],
+          points: [
+            element.width / 2,
+            0,
+            element.width,
+            element.height,
+            0,
+            element.height,
+          ],
           closed: true,
           fill: element.backgroundColor || "#4488FF",
           stroke: element.borderColor || "transparent",
@@ -700,7 +732,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
             points: [0, i * cellHeight, element.width, i * cellHeight],
             stroke: element.borderColor || "#000",
             strokeWidth: element.borderWidth || 1,
-          })
+          }),
         );
       }
 
@@ -710,7 +742,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
             points: [i * cellWidth, 0, i * cellWidth, element.height],
             stroke: element.borderColor || "#000",
             strokeWidth: element.borderWidth || 1,
-          })
+          }),
         );
       }
 
@@ -729,7 +761,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
                 fill: element.color || "#000000",
                 align: "center",
                 verticalAlign: "middle",
-              })
+              }),
             );
           });
         });
@@ -752,7 +784,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
           width: element.width,
           height: element.height,
           fill: "#1a1a1a",
-        })
+        }),
       );
 
       group.add(
@@ -765,7 +797,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
           fontFamily: "Arial",
           fill: "#ffffff",
           align: "center",
-        })
+        }),
       );
 
       group.add(
@@ -778,7 +810,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
           fontFamily: "Arial",
           fill: "#999999",
           align: "center",
-        })
+        }),
       );
 
       return group;
@@ -794,7 +826,7 @@ function createKonvaShape(element: CanvasElement): Konva.Node | null {
 function createCanvasBackgroundNode(
   canvasBackground: string,
   width: number,
-  height: number
+  height: number,
 ): Konva.Rect | null {
   if (!canvasBackground || canvasBackground === "transparent") {
     return null;
@@ -813,7 +845,10 @@ function createCanvasBackgroundNode(
       fillPriority: "linear-gradient",
       fillLinearGradientStartPoint: start,
       fillLinearGradientEndPoint: end,
-      fillLinearGradientColorStops: gradient.colorStops.flatMap((stop) => [stop.offset, stop.color]),
+      fillLinearGradientColorStops: gradient.colorStops.flatMap((stop) => [
+        stop.offset,
+        stop.color,
+      ]),
       name: "canvas-background",
     });
   }
@@ -852,7 +887,10 @@ function isProbablyColor(value: string): boolean {
 
 function parseLinearGradient(input: string): ParsedLinearGradient | null {
   const value = input.trim();
-  if (!value.toLowerCase().startsWith("linear-gradient(") || !value.endsWith(")")) {
+  if (
+    !value.toLowerCase().startsWith("linear-gradient(") ||
+    !value.endsWith(")")
+  ) {
     return null;
   }
 
@@ -871,7 +909,9 @@ function parseLinearGradient(input: string): ParsedLinearGradient | null {
 
   const rawStops = stopParts
     .map(parseGradientStop)
-    .filter((stop): stop is { color: string; offset?: number } => Boolean(stop));
+    .filter((stop): stop is { color: string; offset?: number } =>
+      Boolean(stop),
+    );
 
   if (rawStops.length < 2) return null;
 
@@ -934,7 +974,9 @@ function parseGradientAngle(value: string): number {
   return 180;
 }
 
-function parseGradientStop(part: string): { color: string; offset?: number } | null {
+function parseGradientStop(
+  part: string,
+): { color: string; offset?: number } | null {
   const trimmed = part.trim();
   if (!trimmed) return null;
 
@@ -962,12 +1004,13 @@ function parseGradientStop(part: string): { color: string; offset?: number } | n
 }
 
 function normalizeGradientStops(
-  stops: Array<{ color: string; offset?: number }>
+  stops: Array<{ color: string; offset?: number }>,
 ): Array<{ color: string; offset: number }> {
   const result = stops.map((stop) => ({ ...stop }));
 
   if (result[0].offset == null) result[0].offset = 0;
-  if (result[result.length - 1].offset == null) result[result.length - 1].offset = 1;
+  if (result[result.length - 1].offset == null)
+    result[result.length - 1].offset = 1;
 
   let i = 0;
   while (i < result.length) {
@@ -988,7 +1031,8 @@ function normalizeGradientStops(
 
     for (let j = 1; j < gap; j += 1) {
       const t = j / gap;
-      result[startIndex + j].offset = startOffset + (endOffset - startOffset) * t;
+      result[startIndex + j].offset =
+        startOffset + (endOffset - startOffset) * t;
     }
 
     i = endIndex + 1;
@@ -1003,7 +1047,7 @@ function normalizeGradientStops(
 function getGradientPoints(
   angleDeg: number,
   width: number,
-  height: number
+  height: number,
 ): {
   start: { x: number; y: number };
   end: { x: number; y: number };

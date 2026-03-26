@@ -51,17 +51,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   mode,
   isMobile,
 }) => {
-  if (isMobile) {
-    return selectedElement ? (
-      <ElementInspector
-        element={selectedElement}
-        onUpdate={(updates) => onUpdateElement(selectedElement.id, updates)}
-        onDelete={() => onDeleteElement(selectedElement.id)}
-        onDuplicate={() => onDuplicateElement(selectedElement.id)}
-        onMoveLayer={(dir) => onMoveLayer(selectedElement.id, dir)}
-      />
-    ) : null;
-  }
+  if (isMobile) return null;
 
   return (
     <div className="w-[280px] lg:w-[300px] bg-editor-inspector border-l border-editor-inspector-border flex flex-col shrink-0 overflow-hidden">
@@ -112,7 +102,7 @@ export const Inspector: React.FC<InspectorProps> = ({
 };
 
 // ── Design Inspector (no element selected) ──
-const DesignInspector: React.FC<{
+export const DesignInspector: React.FC<{
   canvasSize: CanvasSizePreset;
   canvasBackground: string;
   onBackgroundChange: (bg: string) => void;
@@ -285,7 +275,7 @@ const FONT_OPTIONS = [
   { label: "Lucida Console", value: "'Lucida Console', monospace" },
 ];
 
-const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onUpdate, onDelete, onDuplicate, onMoveLayer }) => (
+export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onUpdate, onDelete, onDuplicate, onMoveLayer }) => (
   <div className="p-4 space-y-5">
     {/* Actions bar */}
     <div className="flex items-center gap-0.5 flex-wrap">
