@@ -1,5 +1,33 @@
 import React, { useRef, useState } from "react";
-import { Search, Plus, Square, Circle, Triangle, Minus, Star, Hexagon, Heart, Pen, Type, Bold, Italic, Underline } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Square,
+  Circle,
+  Triangle,
+  Minus,
+  Star,
+  Hexagon,
+  Heart,
+  Pen,
+  Type,
+  Bold,
+  Italic,
+  Underline,
+  Image as ImageIcon,
+  LayoutGrid,
+  Sparkles,
+  ScanLine,
+  Clapperboard,
+  Mic,
+  UploadCloud,
+  Shapes,
+  Palette,
+  Columns3,
+  Table2,
+  Captions,
+  List,
+} from "lucide-react";
 import type { ToolType, CanvasElement, EditorMode, CanvasSizePreset } from "./EditorShell";
 
 interface ToolbarSidePanelProps {
@@ -29,188 +57,287 @@ export const ToolbarSidePanel: React.FC<ToolbarSidePanelProps> = ({
     case "uploads":
       return <UploadsPanel onAddElement={onAddElement} mode={mode} />;
     case "background":
-      return <BackgroundPanel onBackgroundChange={onBackgroundChange} canvasBackground={canvasBackground} />;
+      return (
+        <BackgroundPanel
+          onBackgroundChange={onBackgroundChange}
+          canvasBackground={canvasBackground}
+        />
+      );
     case "ai":
       return <AIPanel onAddElement={onAddElement} />;
     case "draw":
       return <DrawPanel onAddElement={onAddElement} />;
     case "layout":
       return <LayoutPanel mode={mode} onCanvasSizeChange={onCanvasSizeChange} />;
-    case "qrcode":
-      return <QRCodePanel onAddElement={onAddElement} />;
+    case "table":
+      return <TablePanel onAddElement={onAddElement} />;
     case "record":
       return <RecordPanel />;
     case "slideshow":
       return <SlideshowPanel />;
+    case "qrcode":
+      return <QRCodePanel onAddElement={onAddElement} />;
     default:
       return (
-        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+        <div className="flex flex-col items-center justify-center h-40 text-[#6b7280]">
           <p className="text-sm">Coming soon</p>
         </div>
       );
   }
 };
 
-const SearchBar: React.FC<{ placeholder?: string; value?: string; onChange?: (v: string) => void }> = ({
-  placeholder = "Search...",
-  value,
-  onChange,
-}) => (
+/* ---------- shared UI ---------- */
+
+const panelText = {
+  title: "text-[14px] font-semibold text-[#2b2150]",
+  body: "text-[13px] text-[#6f7890]",
+  small: "text-[11px] font-medium uppercase tracking-[0.08em] text-[#8b84b3]",
+};
+
+const SearchBar: React.FC<{
+  placeholder?: string;
+  value?: string;
+  onChange?: (v: string) => void;
+}> = ({ placeholder = "Search", value, onChange }) => (
   <div className="relative mb-4">
-    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    <Search
+      size={15}
+      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8d88b5]"
+    />
     <input
       type="text"
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
-      className="w-full h-9 pl-9 pr-3 text-[13px] bg-accent/50 border border-editor-toolbar-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 transition-colors"
+      className="h-[38px] w-full rounded-xl border border-[#d8d4f7] bg-[#faf8ff] pl-9 pr-3 text-[13px] text-[#2b2150] placeholder:text-[#8d88b5] outline-none transition focus:border-[#7650e3] focus:bg-white"
     />
   </div>
 );
 
-// ── Templates ──
+const SegmentedTabs: React.FC<{
+  tabs: string[];
+  active: string;
+  onChange: (v: string) => void;
+}> = ({ tabs, active, onChange }) => (
+  <div className="mb-4 flex rounded-xl bg-[#f3efff] p-1">
+    {tabs.map((tab) => {
+      const isActive = tab === active;
+      return (
+        <button
+          key={tab}
+          onClick={() => onChange(tab)}
+          className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium capitalize transition ${
+            isActive
+              ? "bg-white text-[#7650e3] shadow-sm"
+              : "text-[#6f7890] hover:text-[#2b2150]"
+          }`}
+        >
+          {tab}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const PanelCard: React.FC<React.PropsWithChildren<{ className?: string }>> = ({
+  children,
+  className = "",
+}) => (
+  <div >
+    {children}
+  </div>
+);
+
+const ToolListItem: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  active?: boolean;
+  onClick?: () => void;
+}> = ({ icon, title, subtitle, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition ${
+      active ? "bg-[#f3efff]" : "hover:bg-[#faf8ff]"
+    }`}
+  >
+    <div className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-xl bg-[#d7d7fc] text-[#7650e3]">
+      {icon}
+    </div>
+    <div className="min-w-0">
+      <div className="text-[14px] font-semibold text-[#2b2150]">{title}</div>
+      <div className="text-[13px] leading-snug text-[#6f7890]">{subtitle}</div>
+    </div>
+  </button>
+);
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#8b84b3]">
+    {children}
+  </p>
+);
+
+/* ---------- templates ---------- */
+
 const TemplatesPanel: React.FC = () => {
   const [search, setSearch] = useState("");
-  const categories = ["All", "Business", "Event", "Social", "Sale", "Food", "Music", "Sports"];
-  const [activeCat, setActiveCat] = useState("All");
+  const [activeCat, setActiveCat] = useState("all");
+  const categories = ["all", "business", "event", "social", "sale", "food"];
 
   return (
     <div>
-      <SearchBar placeholder="Search templates..." value={search} onChange={setSearch} />
-      <div className="flex gap-1 mb-3 flex-wrap">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCat(cat)}
-            className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
-              activeCat === cat ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      <SearchBar placeholder="Search templates" value={search} onChange={setSearch} />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {categories.map((cat) => {
+          const isActive = activeCat === cat;
+          return (
+            <button
+              key={cat}
+              onClick={() => setActiveCat(cat)}
+              className={`rounded-full px-3 py-1.5 text-[12px] font-medium capitalize transition ${
+                isActive
+                  ? "bg-[#d9eef8] text-[#0d73aa]"
+                  : "bg-[#f3f5f7] text-[#667085] hover:text-[#243b63]"
+              }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+
+      <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div
+          <button
             key={i}
-            className="aspect-square rounded-lg bg-gradient-to-br from-accent to-muted border border-editor-toolbar-border hover:border-primary/50 transition-colors cursor-pointer overflow-hidden"
+            className="aspect-[3/4] overflow-hidden rounded-xl border border-[#e3e7ed] bg-gradient-to-br from-[#eef2f7] to-[#dde6ef] transition hover:shadow-sm"
           >
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              <span className="text-[11px]">Template {i + 1}</span>
+            <div className="flex h-full items-center justify-center text-[12px] font-medium text-[#667085]">
+              Template {i + 1}
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
   );
 };
 
-// ── Text ──
-const FONT_LIST = [
-  { name: "Inter", family: "'Inter', sans-serif" },
-  { name: "Georgia", family: "Georgia, serif" },
-  { name: "Arial", family: "Arial, sans-serif" },
-  { name: "Times New Roman", family: "'Times New Roman', serif" },
-  { name: "Impact", family: "Impact, sans-serif" },
-  { name: "Courier New", family: "'Courier New', monospace" },
-  { name: "Verdana", family: "Verdana, sans-serif" },
-  { name: "Trebuchet MS", family: "'Trebuchet MS', sans-serif" },
-  { name: "Palatino", family: "'Palatino Linotype', serif" },
-  { name: "Garamond", family: "Garamond, serif" },
-  { name: "Comic Sans MS", family: "'Comic Sans MS', cursive" },
-  { name: "Lucida Console", family: "'Lucida Console', monospace" },
-];
+/* ---------- text ---------- */
 
-const TextPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
-  const addText = (preset: "heading" | "subheading" | "body") => {
-    const configs = {
-      heading: { content: "Add a heading", fontSize: 48, fontWeight: "700", width: 400, height: 65 },
-      subheading: { content: "Add a subheading", fontSize: 32, fontWeight: "600", width: 350, height: 48 },
-      body: { content: "Add body text", fontSize: 18, fontWeight: "400", width: 300, height: 30 },
+const TextPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({
+  onAddElement,
+}) => {
+  const addText = (preset: "plain" | "fancy" | "subtitle" | "slideshow" | "menu") => {
+    const map = {
+      plain: {
+        content: "Plain Text",
+        fontSize: 42,
+        fontWeight: "500",
+        fontFamily: "'Georgia', serif",
+        width: 420,
+        height: 60,
+      },
+      fancy: {
+        content: "Fancy Text",
+        fontSize: 46,
+        fontWeight: "700",
+        fontFamily: "'Georgia', serif",
+        width: 440,
+        height: 70,
+      },
+      subtitle: {
+        content: "Subtitle text",
+        fontSize: 22,
+        fontWeight: "500",
+        fontFamily: "'Inter', sans-serif",
+        width: 340,
+        height: 36,
+      },
+      slideshow: {
+        content: "Slideshow text",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: "'Inter', sans-serif",
+        width: 360,
+        height: 40,
+      },
+      menu: {
+        content: "Menu",
+        fontSize: 32,
+        fontWeight: "700",
+        fontFamily: "'Georgia', serif",
+        width: 260,
+        height: 44,
+      },
     };
-    const cfg = configs[preset];
+
+    const cfg = map[preset];
+
     onAddElement({
       type: "text",
-      x: 100,
-      y: 100 + Math.random() * 200,
+      x: 120,
+      y: 120 + Math.random() * 120,
       width: cfg.width,
       height: cfg.height,
       content: cfg.content,
       fontSize: cfg.fontSize,
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: cfg.fontFamily,
       fontWeight: cfg.fontWeight,
-      color: "#000000",
-      textAlign: "center",
-      lineHeight: 1.2,
+      color: "#123a63",
+      textAlign: "left",
+      lineHeight: 1.15,
     });
   };
 
   return (
-    <div className="space-y-3">
-      <button
-        onClick={() => addText("heading")}
-        className="w-full h-14 rounded-lg bg-primary text-primary-foreground font-bold text-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
-      >
-        Add a heading
-      </button>
-      <button
-        onClick={() => addText("subheading")}
-        className="w-full h-11 rounded-lg border-2 border-editor-toolbar-border text-foreground text-base font-semibold hover:bg-accent transition-colors flex items-center justify-center"
-      >
-        Add a subheading
-      </button>
-      <button
-        onClick={() => addText("body")}
-        className="w-full h-9 rounded-lg border border-editor-toolbar-border text-muted-foreground text-sm hover:bg-accent transition-colors flex items-center justify-center"
-      >
-        Add body text
-      </button>
-
-      <div className="pt-3 border-t border-editor-toolbar-border">
-        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">Font combinations</p>
-        <div className="space-y-2">
-          {FONT_LIST.slice(0, 6).map((font) => (
-            <div
-              key={font.name}
-              className="p-3 rounded-lg border border-editor-toolbar-border hover:border-primary/50 cursor-pointer transition-colors"
-              onClick={() =>
-                onAddElement({
-                  type: "text",
-                  x: 100,
-                  y: 200,
-                  width: 350,
-                  height: 55,
-                  content: font.name,
-                  fontSize: 36,
-                  fontFamily: font.family,
-                  fontWeight: "700",
-                  color: "#000000",
-                  textAlign: "center",
-                })
-              }
-            >
-              <span className="text-base text-foreground font-bold" style={{ fontFamily: font.family }}>
-                {font.name}
-              </span>
-              <span className="block text-[11px] text-muted-foreground mt-0.5" style={{ fontFamily: font.family }}>
-                The quick brown fox jumps over the lazy dog
-              </span>
-            </div>
-          ))}
-        </div>
+    <PanelCard className="overflow-hidden">
+      <div className="space-y-1">
+        <ToolListItem
+          icon={<Type size={28} strokeWidth={1.6} />}
+          title="Plain Text"
+          subtitle="Add simple text"
+          onClick={() => addText("plain")}
+        />
+        <ToolListItem
+          icon={<Sparkles size={28} strokeWidth={1.6} />}
+          title="Fancy Text"
+          subtitle="Add creative font styles"
+          active
+          onClick={() => addText("fancy")}
+        />
+        <ToolListItem
+          icon={<Captions size={28} strokeWidth={1.6} />}
+          title="Subtitles"
+          subtitle="Add subtitles to your design"
+          onClick={() => addText("subtitle")}
+        />
+        <div className="mx-4 border-t border-[#e5e7eb]" />
+        <ToolListItem
+          icon={<Clapperboard size={28} strokeWidth={1.6} />}
+          title="Slideshow"
+          subtitle="Add a text slideshow"
+          onClick={() => addText("slideshow")}
+        />
+        <ToolListItem
+          icon={<List size={28} strokeWidth={1.6} />}
+          title="Menu"
+          subtitle="Create your own menu"
+          onClick={() => addText("menu")}
+        />
       </div>
-    </div>
+    </PanelCard>
   );
 };
 
-// ── Media ──
-const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void; mode: EditorMode }> = ({
-  onAddElement,
-  mode,
-}) => {
+/* ---------- media ---------- */
+
+const MediaPanel: React.FC<{
+  onAddElement: (el: Omit<CanvasElement, "id">) => void;
+  mode: EditorMode;
+}> = ({ onAddElement, mode }) => {
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"photos" | "icons">("photos");
+  const [tab, setTab] = useState("photos");
 
   const stockImages = [
     "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
@@ -219,77 +346,65 @@ const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => vo
     "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
     "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=400&h=300&fit=crop",
     "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=300&fit=crop",
-    "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&h=300&fit=crop",
   ];
 
   return (
     <div>
       <SearchBar
-        placeholder={mode === "video" ? "Search photos & videos..." : "Search photos & icons..."}
+        placeholder={mode === "video" ? "Search photos & videos" : "Search photos & icons"}
         value={search}
         onChange={setSearch}
       />
-      <div className="flex gap-1 mb-3">
-        <button
-          onClick={() => setTab("photos")}
-          className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-            tab === "photos" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          }`}
-        >
-          Photos
-        </button>
-        <button
-          onClick={() => setTab("icons")}
-          className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-            tab === "icons" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          }`}
-        >
-          Icons & Shapes
-        </button>
-      </div>
+
+      <SegmentedTabs
+        tabs={["photos", "icons"]}
+        active={tab}
+        onChange={setTab}
+      />
+
       {tab === "photos" ? (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {stockImages.map((src, i) => (
-            <div
+            <button
               key={i}
-              className="aspect-[4/3] rounded-lg border border-editor-toolbar-border hover:border-primary/50 transition-colors cursor-pointer overflow-hidden"
+              className="aspect-[4/3] overflow-hidden rounded-xl border border-[#e3e7ed] bg-white transition hover:shadow-sm"
               onClick={() =>
                 onAddElement({
                   type: "image",
-                  x: 100 + Math.random() * 100,
-                  y: 100 + Math.random() * 100,
+                  x: 100,
+                  y: 100,
                   width: 300,
                   height: 225,
                   src,
                 })
               }
             >
-              <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-            </div>
+              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </button>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           {[Square, Circle, Triangle, Star, Hexagon, Heart, Minus, Pen].map((Icon, i) => (
             <button
               key={i}
+              className="flex aspect-square items-center justify-center rounded-xl border border-[#e3e7ed] bg-white text-[#51627c] transition hover:bg-[#f7fafc]"
               onClick={() =>
                 onAddElement({
                   type: "shape",
-                  x: 200,
-                  y: 200,
-                  width: 150,
-                  height: 150,
-                  shapeType: i === 0 ? "rectangle" : i === 1 ? "circle" : i === 2 ? "triangle" : "rectangle",
-                  backgroundColor: "#4488FF",
+                  x: 180,
+                  y: 180,
+                  width: 140,
+                  height: 140,
+                  shapeType:
+                    i === 0 ? "rectangle" : i === 1 ? "circle" : i === 2 ? "triangle" : "rectangle",
+                  backgroundColor: "#2f80ed",
                   borderWidth: 0,
                   opacity: 100,
                 })
               }
-              className="aspect-square rounded-lg border border-editor-toolbar-border hover:border-primary/50 hover:bg-accent flex items-center justify-center transition-colors cursor-pointer"
             >
-              <Icon size={20} strokeWidth={1.5} className="text-muted-foreground" />
+              <Icon size={22} strokeWidth={1.6} />
             </button>
           ))}
         </div>
@@ -298,22 +413,25 @@ const MediaPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => vo
   );
 };
 
-// ── Uploads ──
-const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void; mode: EditorMode }> = ({
-  onAddElement,
-  mode,
-}) => {
+/* ---------- uploads ---------- */
+
+const UploadsPanel: React.FC<{
+  onAddElement: (el: Omit<CanvasElement, "id">) => void;
+  mode: EditorMode;
+}> = ({ onAddElement, mode }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<string[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
         setUploads((prev) => [dataUrl, ...prev]);
+
         const img = new window.Image();
         img.onload = () => {
           const maxW = 500;
@@ -338,25 +456,24 @@ const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => 
         onChange={handleFileChange}
         multiple
       />
+
       <button
         onClick={() => fileRef.current?.click()}
-        className="w-full h-28 rounded-lg border-2 border-dashed border-editor-toolbar-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+        className="flex h-[132px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#cfd8e3] bg-[#f8fbfd] text-[#607086] transition hover:border-[#9cc7df] hover:bg-white"
       >
-        <Plus size={28} strokeWidth={1.5} />
-        <span className="text-sm font-medium">Upload files</span>
-        <span className="text-[11px] text-muted-foreground">or drag and drop</span>
+        <UploadCloud size={30} strokeWidth={1.6} />
+        <div className="mt-2 text-[14px] font-semibold text-[#243b63]">Upload files</div>
+        <div className="text-[12px] text-[#7b8798]">or drag and drop</div>
       </button>
 
       {uploads.length > 0 && (
         <div>
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Your uploads
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+          <SectionTitle>Your uploads</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
             {uploads.map((src, i) => (
-              <div
+              <button
                 key={i}
-                className="aspect-[4/3] rounded-lg border border-editor-toolbar-border hover:border-primary/50 transition-colors cursor-pointer overflow-hidden"
+                className="aspect-[4/3] overflow-hidden rounded-xl border border-[#e3e7ed] bg-white"
                 onClick={() => {
                   const img = new window.Image();
                   img.onload = () => {
@@ -369,8 +486,8 @@ const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => 
                   img.src = src;
                 }}
               >
-                <img src={src} alt="" className="w-full h-full object-cover" />
-              </div>
+                <img src={src} alt="" className="h-full w-full object-cover" />
+              </button>
             ))}
           </div>
         </div>
@@ -379,20 +496,21 @@ const UploadsPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => 
   );
 };
 
-// ── Background ──
-const BackgroundPanel: React.FC<{ onBackgroundChange: (bg: string) => void; canvasBackground: string }> = ({
-  onBackgroundChange,
-  canvasBackground,
-}) => {
-  const [customColor, setCustomColor] = useState(canvasBackground.startsWith("#") ? canvasBackground : "#FFFFFF");
-  const [tab, setTab] = useState<"colors" | "gradients" | "patterns">("colors");
+/* ---------- background ---------- */
+
+const BackgroundPanel: React.FC<{
+  onBackgroundChange: (bg: string) => void;
+  canvasBackground: string;
+}> = ({ onBackgroundChange, canvasBackground }) => {
+  const [customColor, setCustomColor] = useState(
+    canvasBackground.startsWith("#") ? canvasBackground : "#ffffff"
+  );
+  const [tab, setTab] = useState("colors");
 
   const colors = [
-    "#FFFFFF", "#F8F9FA", "#E9ECEF", "#DEE2E6", "#CED4DA", "#ADB5BD",
-    "#6C757D", "#495057", "#343A40", "#212529", "#000000",
-    "#FF0000", "#FF4444", "#FF6B6B", "#FF8C00", "#FFA500", "#FFD700",
-    "#FFEB3B", "#8BC34A", "#4CAF50", "#00BCD4", "#2196F3", "#3F51B5",
-    "#673AB7", "#9C27B0", "#E91E63", "#F44336",
+    "#FFFFFF", "#F8F8F8", "#EDEDED", "#D9D9D9", "#BDBDBD", "#8D99AE",
+    "#4F5D75", "#2D3142", "#000000", "#F94144", "#F3722C", "#F9C74F",
+    "#90BE6D", "#43AA8B", "#4D96FF", "#577590", "#9B5DE5", "#F15BB5",
   ];
 
   const gradients = [
@@ -401,53 +519,44 @@ const BackgroundPanel: React.FC<{ onBackgroundChange: (bg: string) => void; canv
     "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
     "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
     "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-    "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-    "linear-gradient(180deg, #2193b0 0%, #6dd5ed 100%)",
-    "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
-    "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
     "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
-    "linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)",
-    "linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)",
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 mb-1">
-        {(["colors", "gradients", "patterns"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 text-[11px] font-medium rounded-md capitalize transition-colors ${
-              tab === t ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+    <div>
+      <SegmentedTabs tabs={["colors", "gradients", "patterns"]} active={tab} onChange={setTab} />
 
       {tab === "colors" && (
-        <>
-          <div className="grid grid-cols-8 gap-1.5">
+        <div className="space-y-4">
+          <div className="grid grid-cols-6 gap-2">
             {colors.map((color) => (
               <button
                 key={color}
-                onClick={() => { onBackgroundChange(color); setCustomColor(color); }}
-                className={`w-full aspect-square rounded-md border transition-transform hover:scale-110 ${
-                  canvasBackground === color ? "border-primary ring-2 ring-primary/30 scale-110" : "border-editor-toolbar-border"
+                onClick={() => {
+                  setCustomColor(color);
+                  onBackgroundChange(color);
+                }}
+                className={`aspect-square rounded-lg border ${
+                  canvasBackground === color
+                    ? "border-[#0d73aa] ring-2 ring-[#d9eef8]"
+                    : "border-[#e3e7ed]"
                 }`}
                 style={{ backgroundColor: color }}
               />
             ))}
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground mb-2">Custom</p>
+
+          <div className="rounded-2xl border border-[#e4e7ec] bg-white p-3">
+            <label className="mb-2 block text-[12px] font-medium text-[#5b6577]">Custom color</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
                 value={customColor}
-                onChange={(e) => { setCustomColor(e.target.value); onBackgroundChange(e.target.value); }}
-                className="w-10 h-10 rounded-md border border-editor-toolbar-border cursor-pointer"
+                onChange={(e) => {
+                  setCustomColor(e.target.value);
+                  onBackgroundChange(e.target.value);
+                }}
+                className="h-10 w-12 rounded-lg border border-[#dfe3ea]"
               />
               <input
                 type="text"
@@ -456,31 +565,23 @@ const BackgroundPanel: React.FC<{ onBackgroundChange: (bg: string) => void; canv
                   setCustomColor(e.target.value);
                   if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) onBackgroundChange(e.target.value);
                 }}
-                className="flex-1 h-9 px-3 text-[13px] bg-accent/50 border border-editor-toolbar-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono"
+                className="h-10 flex-1 rounded-xl border border-[#dfe3ea] bg-[#f8fafc] px-3 text-[13px] text-[#243b63] outline-none"
               />
             </div>
           </div>
-          <button
-            onClick={() => onBackgroundChange("transparent")}
-            className={`w-full h-9 rounded-lg border text-[13px] font-medium transition-colors ${
-              canvasBackground === "transparent"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-editor-toolbar-border text-muted-foreground hover:bg-accent"
-            }`}
-          >
-            Transparent
-          </button>
-        </>
+        </div>
       )}
 
       {tab === "gradients" && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {gradients.map((gradient, i) => (
             <button
               key={i}
               onClick={() => onBackgroundChange(gradient)}
-              className={`w-full aspect-[4/3] rounded-md border transition-transform hover:scale-105 ${
-                canvasBackground === gradient ? "border-primary ring-2 ring-primary/30" : "border-editor-toolbar-border"
+              className={`aspect-[4/3] rounded-xl border ${
+                canvasBackground === gradient
+                  ? "border-[#0d73aa] ring-2 ring-[#d9eef8]"
+                  : "border-[#e3e7ed]"
               }`}
               style={{ background: gradient }}
             />
@@ -489,16 +590,19 @@ const BackgroundPanel: React.FC<{ onBackgroundChange: (bg: string) => void; canv
       )}
 
       {tab === "patterns" && (
-        <div className="text-center py-6 text-muted-foreground text-[13px]">
-          Pattern backgrounds coming soon
-        </div>
+        <PanelCard className="p-6 text-center">
+          <div className="text-[13px] text-[#6b7280]">Pattern backgrounds coming soon</div>
+        </PanelCard>
       )}
     </div>
   );
 };
 
-// ── Draw / Shapes ──
-const DrawPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
+/* ---------- draw ---------- */
+
+const DrawPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({
+  onAddElement,
+}) => {
   const shapes = [
     { label: "Rectangle", icon: Square, shapeType: "rectangle" as const, w: 200, h: 150 },
     { label: "Circle", icon: Circle, shapeType: "circle" as const, w: 150, h: 150 },
@@ -506,66 +610,71 @@ const DrawPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => voi
     { label: "Line", icon: Minus, shapeType: "line" as const, w: 300, h: 4 },
   ];
 
-  const colors = ["#4488FF", "#FF4444", "#FFD700", "#44BB44", "#FF44AA", "#8844FF", "#000000", "#FFFFFF"];
+  const colors = ["#2f80ed", "#eb5757", "#f2c94c", "#27ae60", "#bb6bd9", "#111827"];
 
   return (
-    <div className="space-y-4">
-      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Basic Shapes</p>
-      <div className="grid grid-cols-2 gap-2">
-        {shapes.map((shape) => (
-          <button
-            key={shape.shapeType}
-            onClick={() =>
-              onAddElement({
-                type: "shape",
-                x: 200,
-                y: 200,
-                width: shape.w,
-                height: shape.h,
-                shapeType: shape.shapeType,
-                backgroundColor: "#4488FF",
-                borderColor: "#000000",
-                borderWidth: 0,
-                borderRadius: 0,
-                opacity: 100,
-              })
-            }
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border border-editor-toolbar-border hover:border-primary/50 hover:bg-accent transition-colors cursor-pointer"
-          >
-            <shape.icon size={28} strokeWidth={1.5} />
-            <span className="text-[11px] font-medium">{shape.label}</span>
-          </button>
-        ))}
+    <div className="space-y-5">
+      <div>
+        <SectionTitle>Basic Shapes</SectionTitle>
+        <div className="grid grid-cols-2 gap-3">
+          {shapes.map((shape) => (
+            <button
+              key={shape.shapeType}
+              onClick={() =>
+                onAddElement({
+                  type: "shape",
+                  x: 180,
+                  y: 180,
+                  width: shape.w,
+                  height: shape.h,
+                  shapeType: shape.shapeType,
+                  backgroundColor: "#2f80ed",
+                  borderWidth: 0,
+                  opacity: 100,
+                })
+              }
+              className="rounded-xl border border-[#e3e7ed] bg-white p-4 transition hover:bg-[#f7fafc]"
+            >
+              <div className="flex flex-col items-center gap-2 text-[#51627c]">
+                <shape.icon size={24} strokeWidth={1.6} />
+                <span className="text-[12px] font-medium text-[#243b63]">{shape.label}</span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-4">Quick Colors</p>
-      <div className="grid grid-cols-8 gap-1.5">
-        {colors.map((color) => (
-          <button
-            key={color}
-            onClick={() =>
-              onAddElement({
-                type: "shape",
-                x: 200,
-                y: 200,
-                width: 200,
-                height: 150,
-                shapeType: "rectangle",
-                backgroundColor: color,
-                borderWidth: 0,
-                opacity: 100,
-              })
-            }
-            className="w-full aspect-square rounded-md border border-editor-toolbar-border hover:scale-110 transition-transform cursor-pointer"
-            style={{ backgroundColor: color }}
-          />
-        ))}
+      <div>
+        <SectionTitle>Quick Colors</SectionTitle>
+        <div className="grid grid-cols-6 gap-2">
+          {colors.map((color) => (
+            <button
+              key={color}
+              onClick={() =>
+                onAddElement({
+                  type: "shape",
+                  x: 180,
+                  y: 180,
+                  width: 180,
+                  height: 120,
+                  shapeType: "rectangle",
+                  backgroundColor: color,
+                  borderWidth: 0,
+                  opacity: 100,
+                })
+              }
+              className="aspect-square rounded-lg border border-[#e3e7ed]"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-// ── Layout ──
+/* ---------- layout ---------- */
+
 const IMAGE_SIZES: CanvasSizePreset[] = [
   { label: "Instagram Post", width: 1080, height: 1080, description: "1080 × 1080" },
   { label: "Instagram Story", width: 1080, height: 1920, description: "1080 × 1920" },
@@ -574,114 +683,105 @@ const IMAGE_SIZES: CanvasSizePreset[] = [
   { label: "Facebook Post", width: 1200, height: 630, description: "1200 × 630" },
   { label: "Twitter/X Post", width: 1200, height: 675, description: "1200 × 675" },
   { label: "YouTube Thumbnail", width: 1280, height: 720, description: "1280 × 720" },
-  { label: "A4 Portrait", width: 2480, height: 3508, description: "210 × 297mm" },
-  { label: "Poster (24×36)", width: 2400, height: 3600, description: "24 × 36in" },
-  { label: "Business Card", width: 1050, height: 600, description: "3.5 × 2in" },
-  { label: "Album Cover", width: 1600, height: 1600, description: "1600 × 1600" },
-  { label: "Logo", width: 600, height: 600, description: "600 × 600" },
-  { label: "Facebook Cover", width: 851, height: 315, description: "851 × 315" },
-  { label: "LinkedIn Background", width: 1400, height: 425, description: "1400 × 425" },
-  { label: "Pinterest Graphic", width: 735, height: 1102, description: "735 × 1102" },
 ];
 
 const VIDEO_SIZES: CanvasSizePreset[] = [
   { label: "Instagram Reel", width: 1080, height: 1920, description: "9:16 vertical" },
   { label: "YouTube Video", width: 1920, height: 1080, description: "16:9 landscape" },
   { label: "TikTok Video", width: 1080, height: 1920, description: "9:16 vertical" },
-  { label: "Facebook Story", width: 1080, height: 1920, description: "9:16 vertical" },
   { label: "Square Video", width: 1080, height: 1080, description: "1:1 square" },
-  { label: "Twitter/X Video", width: 1200, height: 675, description: "16:9 landscape" },
 ];
 
-const LayoutPanel: React.FC<{ mode: EditorMode; onCanvasSizeChange: (preset: CanvasSizePreset) => void }> = ({
-  mode,
-  onCanvasSizeChange,
-}) => {
+const LayoutPanel: React.FC<{
+  mode: EditorMode;
+  onCanvasSizeChange: (preset: CanvasSizePreset) => void;
+}> = ({ mode, onCanvasSizeChange }) => {
   const [search, setSearch] = useState("");
   const sizes = mode === "video" ? VIDEO_SIZES : IMAGE_SIZES;
-  const filtered = search ? sizes.filter((s) => s.label.toLowerCase().includes(search.toLowerCase())) : sizes;
+  const filtered = search
+    ? sizes.filter((s) => s.label.toLowerCase().includes(search.toLowerCase()))
+    : sizes;
 
   return (
-    <div className="space-y-3">
-      <SearchBar placeholder="Search sizes..." value={search} onChange={setSearch} />
-      <div className="space-y-1">
-        {filtered.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => onCanvasSizeChange(item)}
-            className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors text-left"
-          >
-            <span className="text-[13px] font-medium text-foreground">{item.label}</span>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{item.description}</span>
-          </button>
-        ))}
-      </div>
+    <div>
+      <SearchBar placeholder="Search sizes" value={search} onChange={setSearch} />
+
+      <PanelCard className="overflow-hidden">
+        <div className="divide-y divide-[#edf1f5]">
+          {filtered.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => onCanvasSizeChange(item)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#f7fafc]"
+            >
+              <span className="text-[13px] font-medium text-[#243b63]">{item.label}</span>
+              <span className="text-[12px] text-[#7c8798]">{item.description}</span>
+            </button>
+          ))}
+        </div>
+      </PanelCard>
     </div>
   );
 };
 
-// ── AI ──
-const AIPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
+/* ---------- ai ---------- */
+
+const AIPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({
+  onAddElement,
+}) => {
   const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState<"text" | "image">("text");
+  const [mode, setMode] = useState("text");
 
   return (
     <div className="space-y-4">
-      <div className="p-4 rounded-lg bg-gradient-to-br from-violet-500/10 to-blue-500/10 border border-violet-500/20">
-        <p className="text-sm font-semibold text-foreground mb-1">AI Design Assistant</p>
-        <p className="text-[12px] text-muted-foreground">
-          Describe what you want to create and let AI help you design it.
-        </p>
-      </div>
+      <PanelCard className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef6ff] text-[#0d73aa]">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <div className="text-[14px] font-semibold text-[#243b63]">AI Design Assistant</div>
+            <div className="text-[13px] text-[#6b7280]">
+              Describe what you want to create and let AI help.
+            </div>
+          </div>
+        </div>
+      </PanelCard>
 
-      <div className="flex gap-1">
-        <button
-          onClick={() => setMode("text")}
-          className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-            mode === "text" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          }`}
-        >
-          Generate Text
-        </button>
-        <button
-          onClick={() => setMode("image")}
-          className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-            mode === "image" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"
-          }`}
-        >
-          Generate Image
-        </button>
-      </div>
+      <SegmentedTabs tabs={["text", "image"]} active={mode} onChange={setMode} />
 
       <textarea
-        placeholder={
-          mode === "text" ? "Describe the text content you need..." : "Describe the image you want to generate..."
-        }
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        className="w-full h-24 p-3 text-[13px] bg-accent/50 border border-editor-toolbar-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+        placeholder={
+          mode === "text"
+            ? "Describe the text content you need"
+            : "Describe the image you want"
+        }
+        className="h-28 w-full resize-none rounded-2xl border border-[#dfe3ea] bg-[#f8fafc] p-3 text-[13px] text-[#243b63] outline-none placeholder:text-[#8b95a7] focus:border-[#b8d4e8] focus:bg-white"
       />
+
       <button
         onClick={() => {
           if (!prompt.trim()) return;
           if (mode === "text") {
             onAddElement({
               type: "text",
-              x: 100,
+              x: 120,
               y: 200,
-              width: 400,
+              width: 420,
               height: 60,
               content: prompt,
               fontSize: 24,
               fontFamily: "'Inter', sans-serif",
               fontWeight: "400",
-              color: "#000000",
-              textAlign: "center",
+              color: "#243b63",
+              textAlign: "left",
             });
           }
           setPrompt("");
         }}
-        className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+        className="h-11 w-full rounded-xl bg-[#7650e3] text-sm font-semibold text-white transition hover:bg-[#6945d2]"
       >
         Generate
       </button>
@@ -689,15 +789,20 @@ const AIPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void 
   );
 };
 
-// ── QR Code ──
-const QRCodePanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({ onAddElement }) => {
+/* ---------- qrcode ---------- */
+
+const QRCodePanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({
+  onAddElement,
+}) => {
   const [url, setUrl] = useState("https://example.com");
   const [fgColor, setFgColor] = useState("#000000");
-  const [bgColor, setBgColor] = useState("#FFFFFF");
+  const [bgColor, setBgColor] = useState("#ffffff");
 
   const generateQR = () => {
-    // Use a QR code API to generate the image
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&color=${fgColor.replace("#", "")}&bgcolor=${bgColor.replace("#", "")}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+      url
+    )}&color=${fgColor.replace("#", "")}&bgcolor=${bgColor.replace("#", "")}`;
+
     onAddElement({
       type: "image",
       x: 200,
@@ -710,75 +815,154 @@ const QRCodePanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => v
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-          URL or Text
-        </label>
+      <PanelCard className="p-4">
+        <label className="mb-2 block text-[12px] font-medium text-[#5b6577]">URL or text</label>
         <input
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Enter URL or text..."
-          className="w-full h-9 px-3 text-[13px] bg-accent/50 border border-editor-toolbar-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="h-10 w-full rounded-xl border border-[#dfe3ea] bg-[#f8fafc] px-3 text-[13px] text-[#243b63] outline-none"
         />
-      </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="text-[11px] text-muted-foreground mb-1 block">Foreground</label>
+      </PanelCard>
+
+      <div className="grid grid-cols-2 gap-3">
+        <PanelCard className="p-3">
+          <label className="mb-2 block text-[12px] font-medium text-[#5b6577]">Foreground</label>
           <input
             type="color"
             value={fgColor}
             onChange={(e) => setFgColor(e.target.value)}
-            className="w-full h-9 rounded-md border border-editor-toolbar-border cursor-pointer"
+            className="h-10 w-full rounded-lg border border-[#dfe3ea]"
           />
-        </div>
-        <div className="flex-1">
-          <label className="text-[11px] text-muted-foreground mb-1 block">Background</label>
+        </PanelCard>
+
+        <PanelCard className="p-3">
+          <label className="mb-2 block text-[12px] font-medium text-[#5b6577]">Background</label>
           <input
             type="color"
             value={bgColor}
             onChange={(e) => setBgColor(e.target.value)}
-            className="w-full h-9 rounded-md border border-editor-toolbar-border cursor-pointer"
+            className="h-10 w-full rounded-lg border border-[#dfe3ea]"
           />
-        </div>
+        </PanelCard>
       </div>
+
       <button
         onClick={generateQR}
-        className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+        className="h-11 w-full rounded-xl bg-[#0d73aa] text-sm font-semibold text-white transition hover:bg-[#0b6798]"
       >
-        Add QR Code
+        Add QR code
       </button>
     </div>
   );
 };
 
-// ── Record (Video only) ──
+/* ---------- record ---------- */
+
 const RecordPanel: React.FC = () => (
   <div className="space-y-4">
-    <div className="p-4 rounded-lg bg-accent border border-editor-toolbar-border text-center">
-      <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-destructive/10 flex items-center justify-center">
-        <div className="w-6 h-6 rounded-full bg-destructive" />
+    <PanelCard className="p-5">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#feecee]">
+          <div className="h-6 w-6 rounded-full bg-[#e5484d]" />
+        </div>
+        <div className="text-[14px] font-semibold text-[#2b2150]">Record yourself</div>
+        <div className="mt-1 text-[13px] text-[#6b7890]">
+          Record your camera or screen and add it to your design.
+        </div>
       </div>
-      <p className="text-sm font-medium text-foreground mb-1">Record yourself</p>
-      <p className="text-[12px] text-muted-foreground">Record your camera or screen and add it to your design.</p>
-    </div>
-    <button className="w-full h-10 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 transition-colors">
-      Start Recording
+    </PanelCard>
+
+    <button className="h-11 w-full rounded-xl bg-[#e5484d] text-sm font-semibold text-white transition hover:opacity-95">
+      Start recording
     </button>
   </div>
 );
 
-// ── Slideshow (Video only) ──
+/* ---------- slideshow ---------- */
+
 const SlideshowPanel: React.FC = () => (
   <div className="space-y-4">
-    <div className="p-4 rounded-lg bg-accent border border-editor-toolbar-border">
-      <p className="text-sm font-medium text-foreground mb-1">Slideshow</p>
-      <p className="text-[12px] text-muted-foreground">
+    <PanelCard className="p-4">
+      <div className="text-[14px] font-semibold text-[#243b63]">Slideshow</div>
+      <div className="mt-1 text-[13px] text-[#6b7280]">
         Create a slideshow by adding multiple slides with transitions and timing.
-      </p>
-    </div>
-    <button className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-      Add Slide
+      </div>
+    </PanelCard>
+
+    <button className="h-11 w-full rounded-xl bg-[#0d73aa] text-sm font-semibold text-white transition hover:bg-[#0b6798]">
+      Add slide
     </button>
   </div>
 );
+
+/* ---------- table ---------- */
+
+const TablePanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void }> = ({
+  onAddElement,
+}) => {
+  const [rows, setRows] = useState(3);
+  const [cols, setCols] = useState(3);
+
+  const addTable = () => {
+    const tableData = Array(rows)
+      .fill(null)
+      .map(() => Array(cols).fill(""));
+
+    onAddElement({
+      type: "table",
+      x: 100,
+      y: 100,
+      width: 420,
+      height: 220,
+      rows,
+      cols,
+      tableData,
+      fontSize: 14,
+      color: "#000000",
+      backgroundColor: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <PanelCard className="p-4">
+        <SectionTitle>Table size</SectionTitle>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-[12px] text-[#6b7280]">Rows</label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={rows}
+              onChange={(e) => setRows(Number(e.target.value))}
+              className="h-10 w-full rounded-xl border border-[#dfe3ea] bg-[#f8fafc] px-3 text-[13px] text-[#243b63] outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] text-[#6b7280]">Columns</label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={cols}
+              onChange={(e) => setCols(Number(e.target.value))}
+              className="h-10 w-full rounded-xl border border-[#dfe3ea] bg-[#f8fafc] px-3 text-[13px] text-[#243b63] outline-none"
+            />
+          </div>
+        </div>
+      </PanelCard>
+
+      <button
+        onClick={addTable}
+        className="h-11 w-full rounded-xl bg-[#0d73aa] text-sm font-semibold text-white transition hover:bg-[#0b6798]"
+      >
+        Add table
+      </button>
+    </div>
+  );
+};

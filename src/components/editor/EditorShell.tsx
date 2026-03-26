@@ -1,12 +1,25 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback } from "react";
 import { TopBar } from "./TopBar";
 import { Toolbar } from "./Toolbar";
-import { CanvasStage } from "./CanvasStage";
+import { CanvasStage } from "./CanvasStageKonva";
 import { Inspector } from "./Inspector";
 import { TimelineBar } from "./TimelineBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export type ToolType = "uploads" | "templates" | "media" | "text" | "ai" | "background" | "layout" | "record" | "draw" | "slideshow" | "qrcode";
+export type ToolType =
+  | "uploads"
+  | "templates"
+  | "media"
+  | "text"
+  | "ai"
+  | "background"
+  | "layout"
+  | "record"
+  | "draw"
+  | "slideshow"
+  | "qrcode"
+  | "table";
+
 export type EditorMode = "image" | "video";
 
 export interface CanvasSizePreset {
@@ -18,7 +31,7 @@ export interface CanvasSizePreset {
 
 export interface CanvasElement {
   id: string;
-  type: "text" | "image" | "shape" | "video";
+  type: "text" | "image" | "shape" | "video" | "table";
   x: number;
   y: number;
   width: number;
@@ -39,9 +52,25 @@ export interface CanvasElement {
   lineHeight?: number;
   letterSpacing?: number;
   shapeType?: "rectangle" | "circle" | "triangle" | "line";
-  // Video-specific
   duration?: number;
   startTime?: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  hueRotate?: number;
+  blur?: number;
+  invert?: number;
+  maskShape?: "none" | "circle" | "rounded" | "triangle" | "star" | "heart";
+  animation?: {
+    type: "bounce" | "slide" | "fade" | "scale" | "rotate";
+    duration: number;
+    delay: number;
+    direction: "in" | "out";
+  };
+  rows?: number;
+  cols?: number;
+  tableData?: string[][];
+  cellStyles?: { [key: string]: { backgroundColor?: string; color?: string; fontWeight?: string } };
 }
 
 interface HistoryEntry {
@@ -58,12 +87,16 @@ interface EditorShellProps {
   onBack: () => void;
 }
 
+const MOBILE_TOOLBAR_HEIGHT = 60;
+const MOBILE_PANEL_OFFSET = 60;
+
 export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onBack }) => {
   const isMobile = useIsMobile();
+
   const [activeTool, setActiveTool] = React.useState<ToolType | null>(null);
-  const [selectedElementId, setSelectedElementId] = React.useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = React.useState<string[]>([]);
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
-  const [zoom, setZoom] = React.useState(82);
+  const [zoom, setZoom] = React.useState(100);
   const [mobilePanel, setMobilePanel] = React.useState<"toolbar" | "inspector" | null>(null);
   const [canvasSize, setCanvasSize] = React.useState<CanvasSizePreset>(initialSize);
   const [canvasBackground, setCanvasBackground] = React.useState("#FFFFFF");
@@ -71,27 +104,40 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   const [gridEnabled, setGridEnabled] = React.useState(false);
   const [alignmentGuides, setAlignmentGuides] = React.useState(true);
   const [bleedEnabled, setBleedEnabled] = React.useState(false);
-  const [folds, setFolds] = React.useState<string>("none");
+  const [folds, setFolds] = React.useState("none");
+  const [showDownloadModal, setShowDownloadModal] = React.useState(false);
+  const [showResizeModal, setShowResizeModal] = React.useState(false);
+  const [showAIModal, setShowAIModal] = React.useState(false);
 
-  // Video-specific state
-  const [videoDuration, setVideoDuration] = React.useState(10); // seconds
+  const [videoDuration, setVideoDuration] = React.useState(10);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
 
-  const [elements, setElements] = React.useState<CanvasElement[]>([]);
+  if (!initialSize || !initialSize.width || !initialSize.height) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-red-50 text-red-700">
+        <p className="text-lg">Invalid canvas size selected. Please go back and choose a valid preset.</p>
+      </div>
+    );
+  }
 
-  // History for undo/redo
-  const [history, setHistory] = React.useState<HistoryEntry[]>([{ elements: [], canvasBackground: "#FFFFFF" }]);
+  const [elements, setElements] = React.useState<CanvasElement[]>([]);
+  const [history, setHistory] = React.useState<HistoryEntry[]>([
+    { elements: [], canvasBackground: "#FFFFFF" },
+  ]);
   const [historyIndex, setHistoryIndex] = React.useState(0);
 
-  const pushHistory = useCallback((newElements: CanvasElement[], newBg?: string) => {
-    const bg = newBg ?? canvasBackground;
-    setHistory(prev => {
-      const trimmed = prev.slice(0, historyIndex + 1);
-      return [...trimmed, { elements: newElements, canvasBackground: bg }];
-    });
-    setHistoryIndex(prev => prev + 1);
-  }, [historyIndex, canvasBackground]);
+  const pushHistory = useCallback(
+    (newElements: CanvasElement[], newBg?: string) => {
+      const bg = newBg ?? canvasBackground;
+      setHistory((prev) => {
+        const trimmed = prev.slice(0, historyIndex + 1);
+        return [...trimmed, { elements: newElements, canvasBackground: bg }];
+      });
+      setHistoryIndex((prev) => prev + 1);
+    },
+    [historyIndex, canvasBackground]
+  );
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {
@@ -116,7 +162,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  const selectedElement = elements.find((el) => el.id === selectedElementId) || null;
+  const selectedElements = elements.filter((el) => selectedElementIds.includes(el.id));
+  const selectedElement = selectedElements.length === 1 ? selectedElements[0] : null;
 
   const handleToolClick = (tool: ToolType) => {
     if (isMobile) {
@@ -133,119 +180,222 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
     }
   };
 
-  const updateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
-    setElements(prev => {
-      const next = prev.map(el => el.id === id ? { ...el, ...updates } : el);
-      pushHistory(next);
-      return next;
-    });
-  }, [pushHistory]);
+  const updateElement = useCallback(
+    (id: string, updates: Partial<CanvasElement>) => {
+      setElements((prev) => {
+        const next = prev.map((el) => (el.id === id ? { ...el, ...updates } : el));
+        pushHistory(next);
+        return next;
+      });
+    },
+    [pushHistory]
+  );
 
-  const addElement = useCallback((element: Omit<CanvasElement, "id">) => {
-    const newEl = { ...element, id: generateId() };
-    setElements(prev => {
-      const next = [...prev, newEl];
-      pushHistory(next);
-      return next;
-    });
-    setSelectedElementId(newEl.id);
-    if (isMobile) setMobilePanel(null);
-  }, [pushHistory, isMobile]);
-
-  const deleteElement = useCallback((id: string) => {
-    setElements(prev => {
-      const next = prev.filter(el => el.id !== id);
-      pushHistory(next);
-      return next;
-    });
-    if (selectedElementId === id) setSelectedElementId(null);
-  }, [pushHistory, selectedElementId]);
-
-  const duplicateElement = useCallback((id: string) => {
-    const el = elements.find(e => e.id === id);
-    if (el) {
-      const newEl = { ...el, id: generateId(), x: el.x + 20, y: el.y + 20 };
-      setElements(prev => {
+  const addElement = useCallback(
+    (element: Omit<CanvasElement, "id">) => {
+      const newEl = { ...element, id: generateId() };
+      setElements((prev) => {
         const next = [...prev, newEl];
         pushHistory(next);
         return next;
       });
-      setSelectedElementId(newEl.id);
-    }
-  }, [elements, pushHistory]);
+      setSelectedElementIds([newEl.id]);
+      if (isMobile) setMobilePanel(null);
+    },
+    [pushHistory, isMobile]
+  );
 
-  const moveElementLayer = useCallback((id: string, direction: "up" | "down" | "top" | "bottom") => {
-    setElements(prev => {
-      const idx = prev.findIndex(e => e.id === id);
-      if (idx === -1) return prev;
-      const next = [...prev];
-      const [item] = next.splice(idx, 1);
-      switch (direction) {
-        case "up": next.splice(Math.min(idx + 1, next.length), 0, item); break;
-        case "down": next.splice(Math.max(idx - 1, 0), 0, item); break;
-        case "top": next.push(item); break;
-        case "bottom": next.unshift(item); break;
+  const deleteElement = useCallback(
+    (id?: string) => {
+      const idsToDelete = id ? [id] : selectedElementIds;
+      setElements((prev) => {
+        const next = prev.filter((el) => !idsToDelete.includes(el.id));
+        pushHistory(next);
+        return next;
+      });
+      setSelectedElementIds([]);
+    },
+    [pushHistory, selectedElementIds]
+  );
+
+  const duplicateElement = useCallback(
+    (id?: string) => {
+      const idsToDuplicate = id ? [id] : selectedElementIds;
+      setElements((prev) => {
+        const next = [...prev];
+        const newIds: string[] = [];
+
+        idsToDuplicate.forEach((currentId) => {
+          const el = next.find((e) => e.id === currentId);
+          if (el) {
+            const newEl = { ...el, id: generateId(), x: el.x + 20, y: el.y + 20 };
+            next.push(newEl);
+            newIds.push(newEl.id);
+          }
+        });
+
+        pushHistory(next);
+        setSelectedElementIds(newIds);
+        return next;
+      });
+    },
+    [pushHistory, selectedElementIds]
+  );
+
+  const moveElementLayer = useCallback(
+    (id: string, direction: "up" | "down" | "top" | "bottom") => {
+      setElements((prev) => {
+        const idx = prev.findIndex((e) => e.id === id);
+        if (idx === -1) return prev;
+
+        const next = [...prev];
+        const [item] = next.splice(idx, 1);
+
+        switch (direction) {
+          case "up":
+            next.splice(Math.min(idx + 1, next.length), 0, item);
+            break;
+          case "down":
+            next.splice(Math.max(idx - 1, 0), 0, item);
+            break;
+          case "top":
+            next.push(item);
+            break;
+          case "bottom":
+            next.unshift(item);
+            break;
+        }
+
+        pushHistory(next);
+        return next;
+      });
+    },
+    [pushHistory]
+  );
+
+  const handleBackgroundChange = useCallback(
+    (bg: string) => {
+      setCanvasBackground(bg);
+      pushHistory(elements, bg);
+    },
+    [elements, pushHistory]
+  );
+
+  const handleSelectElement = useCallback(
+    (id: string | null, shiftKey: boolean = false) => {
+      if (!id) {
+        setSelectedElementIds([]);
+        return;
       }
-      pushHistory(next);
-      return next;
-    });
-  }, [pushHistory]);
 
-  const handleBackgroundChange = useCallback((bg: string) => {
-    setCanvasBackground(bg);
-    pushHistory(elements, bg);
-  }, [elements, pushHistory]);
+      if (shiftKey) {
+        setSelectedElementIds((prev) => {
+          if (prev.includes(id)) {
+            return prev.filter((i) => i !== id);
+          }
+          return [...prev, id];
+        });
+      } else {
+        setSelectedElementIds([id]);
+      }
 
-  const handleSelectElement = useCallback((id: string | null) => {
-    setSelectedElementId(id);
-    if (id && isMobile) {
-      setMobilePanel("inspector");
-    }
-  }, [isMobile]);
+      if (id && isMobile) setMobilePanel("inspector");
+    },
+    [isMobile]
+  );
 
-  const handleCanvasSizeChange = useCallback((preset: CanvasSizePreset) => {
-    setCanvasSize(preset);
+  const handleCanvasSizeChange = useCallback(
+    (preset: CanvasSizePreset) => {
+      const oldSize = canvasSize;
+      const newSize = preset;
+
+      const scaleX = newSize.width / oldSize.width;
+      const scaleY = newSize.height / oldSize.height;
+      const resizeScale = Math.min(scaleX, scaleY);
+
+      setElements((prev) => {
+        const next = prev.map((el) => ({
+          ...el,
+          x: Math.round(el.x * scaleX),
+          y: Math.round(el.y * scaleY),
+          width: Math.round(el.width * resizeScale),
+          height: Math.round(el.height * resizeScale),
+          fontSize: el.fontSize ? Math.round(el.fontSize * resizeScale) : el.fontSize,
+          borderWidth: el.borderWidth ? Math.round(el.borderWidth * resizeScale) : el.borderWidth,
+          borderRadius: el.borderRadius ? Math.round(el.borderRadius * resizeScale) : el.borderRadius,
+        }));
+        pushHistory(next);
+        return next;
+      });
+
+      setCanvasSize(preset);
+    },
+    [canvasSize, pushHistory]
+  );
+
+  const handleDownload = useCallback((format: string) => {
+    console.log(`Downloading canvas as ${format.toUpperCase()}`);
+    setShowDownloadModal(false);
   }, []);
 
-  // Keyboard shortcuts
+  const handleResize = useCallback(
+    (size: CanvasSizePreset) => {
+      handleCanvasSizeChange(size);
+      setShowResizeModal(false);
+    },
+    [handleCanvasSizeChange]
+  );
+
+  const handleAIGenerate = useCallback((prompt: string) => {
+    console.log(`Generating content with prompt: ${prompt}`);
+    setShowAIModal(false);
+  }, []);
+
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      const contentEditable = (e.target as HTMLElement)?.getAttribute?.('contenteditable');
-      if (contentEditable === 'true') return;
-      
+      const contentEditable = (e.target as HTMLElement)?.getAttribute?.("contenteditable");
+      if (contentEditable === "true") return;
+
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
-        if (e.shiftKey) redo(); else undo();
+        if (e.shiftKey) redo();
+        else undo();
       }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "y") {
         e.preventDefault();
         redo();
       }
+
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedElementId) {
+        if (selectedElementIds.length > 0) {
           e.preventDefault();
-          deleteElement(selectedElementId);
+          deleteElement();
         }
       }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "d") {
         e.preventDefault();
-        if (selectedElementId) duplicateElement(selectedElementId);
+        if (selectedElementIds.length > 0) duplicateElement();
       }
-      // Space to play/pause for video mode
-      if (mode === "video" && e.key === " " && !selectedElementId) {
+
+      if (mode === "video" && e.key === " " && selectedElementIds.length === 0) {
         e.preventDefault();
-        setIsPlaying(p => !p);
+        setIsPlaying((p) => !p);
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo, selectedElementId, deleteElement, duplicateElement, mode]);
+  }, [undo, redo, selectedElementIds, deleteElement, duplicateElement, mode]);
 
-  // Mobile layout
   if (isMobile) {
     return (
-      <div className="h-screen w-screen flex flex-col overflow-hidden bg-editor-toolbar">
+      <div
+        className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100"
+        style={{ paddingBottom: 0 }}
+      >
         <TopBar
           undo={undo}
           redo={redo}
@@ -254,12 +404,25 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
           isMobile={isMobile}
           mode={mode}
           onBack={onBack}
+          onDownload={() => setShowDownloadModal(true)}
+          onResize={() => setShowResizeModal(true)}
+          onAI={() => setShowAIModal(true)}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          canvasSize={canvasSize}
+          canvasBackground={canvasBackground}
+          gridEnabled={gridEnabled}
+          alignmentGuides={alignmentGuides}
+          bleedEnabled={bleedEnabled}
         />
 
-        <div className="flex-1 relative overflow-hidden">
+        <div
+          className="relative flex-1 min-h-0 overflow-hidden"
+          style={{ paddingBottom: MOBILE_TOOLBAR_HEIGHT }}
+        >
           <CanvasStage
             elements={elements}
-            selectedElementId={selectedElementId}
+            selectedElementIds={selectedElementIds}
             onSelectElement={handleSelectElement}
             onUpdateElement={updateElement}
             zoom={zoom}
@@ -269,90 +432,140 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
             gridEnabled={gridEnabled}
             alignmentGuides={alignmentGuides}
             bleedEnabled={bleedEnabled}
+            isMobileViewport
+          />
+
+          {mobilePanel === "toolbar" && activeTool && (
+            <div
+              className="absolute left-0 right-0 z-30 bg-white border-t border-gray-200 overflow-y-auto shadow-lg"
+              style={{
+                bottom: MOBILE_PANEL_OFFSET,
+                maxHeight: "45vh",
+              }}
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground capitalize">
+                    {activeTool === "qrcode" ? "QR Code" : activeTool === "ai" ? "AI" : activeTool}
+                  </h3>
+                  <button
+                    onClick={() => setMobilePanel(null)}
+                    className="text-sm text-muted-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <MobileToolContent
+                  activeTool={activeTool}
+                  onAddElement={addElement}
+                  onBackgroundChange={handleBackgroundChange}
+                  canvasBackground={canvasBackground}
+                  mode={mode}
+                  onCanvasSizeChange={handleCanvasSizeChange}
+                />
+              </div>
+            </div>
+          )}
+
+          {mobilePanel === "inspector" && selectedElement && (
+            <div
+              className="absolute left-0 right-0 z-30 bg-white border-t border-gray-200 overflow-y-auto shadow-lg"
+              style={{
+                bottom: MOBILE_PANEL_OFFSET,
+                maxHeight: "45vh",
+              }}
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {selectedElement.type === "text"
+                      ? "Text"
+                      : selectedElement.type === "shape"
+                      ? "Shape"
+                      : "Image"}
+                  </h3>
+                  <button
+                    onClick={() => setMobilePanel(null)}
+                    className="text-sm text-muted-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <Inspector
+                  selectedElement={selectedElement}
+                  onUpdateElement={updateElement}
+                  onDeleteElement={deleteElement}
+                  onDuplicateElement={duplicateElement}
+                  onMoveLayer={moveElementLayer}
+                  canvasSize={canvasSize}
+                  canvasBackground={canvasBackground}
+                  onBackgroundChange={handleBackgroundChange}
+                  designTitle={designTitle}
+                  onDesignTitleChange={setDesignTitle}
+                  gridEnabled={gridEnabled}
+                  onGridToggle={setGridEnabled}
+                  alignmentGuides={alignmentGuides}
+                  onAlignmentGuidesToggle={setAlignmentGuides}
+                  bleedEnabled={bleedEnabled}
+                  onBleedToggle={setBleedEnabled}
+                  folds={folds}
+                  onFoldsChange={setFolds}
+                  mode={mode}
+                  isMobile
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="relative z-40 shrink-0"
+          style={{ height: MOBILE_TOOLBAR_HEIGHT }}
+        >
+          <Toolbar
+            activeTool={activeTool}
+            onToolClick={handleToolClick}
+            sidebarExpanded={false}
+            onCloseSidebar={() => {}}
+            isMobile
+            onAddElement={addElement}
+            onBackgroundChange={handleBackgroundChange}
+            canvasBackground={canvasBackground}
+            mode={mode}
+            onCanvasSizeChange={handleCanvasSizeChange}
           />
         </div>
 
-        {/* Mobile bottom panel overlay */}
-        {mobilePanel === "toolbar" && activeTool && (
-          <div className="absolute bottom-[60px] left-0 right-0 z-30 bg-editor-toolbar border-t border-editor-toolbar-border max-h-[50vh] overflow-y-auto editor-scroll">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-foreground capitalize">
-                  {activeTool === "qrcode" ? "QR Code" : activeTool === "ai" ? "AI" : activeTool}
-                </h3>
-                <button onClick={() => setMobilePanel(null)} className="text-sm text-muted-foreground">
-                  Close
-                </button>
-              </div>
-              <MobileToolContent
-                activeTool={activeTool}
-                onAddElement={addElement}
-                onBackgroundChange={handleBackgroundChange}
-                canvasBackground={canvasBackground}
-                mode={mode}
-                onCanvasSizeChange={handleCanvasSizeChange}
-              />
-            </div>
-          </div>
+        {showDownloadModal && (
+          <DownloadModal
+            canvasSize={canvasSize}
+            onClose={() => setShowDownloadModal(false)}
+            onDownload={handleDownload}
+          />
         )}
 
-        {mobilePanel === "inspector" && selectedElement && (
-          <div className="absolute bottom-[60px] left-0 right-0 z-30 bg-editor-toolbar border-t border-editor-toolbar-border max-h-[50vh] overflow-y-auto editor-scroll">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {selectedElement.type === "text" ? "Text" : selectedElement.type === "shape" ? "Shape" : "Image"}
-                </h3>
-                <button onClick={() => setMobilePanel(null)} className="text-sm text-muted-foreground">
-                  Close
-                </button>
-              </div>
-              <Inspector
-                selectedElement={selectedElement}
-                onUpdateElement={updateElement}
-                onDeleteElement={deleteElement}
-                onDuplicateElement={duplicateElement}
-                onMoveLayer={moveElementLayer}
-                canvasSize={canvasSize}
-                canvasBackground={canvasBackground}
-                onBackgroundChange={handleBackgroundChange}
-                designTitle={designTitle}
-                onDesignTitleChange={setDesignTitle}
-                gridEnabled={gridEnabled}
-                onGridToggle={setGridEnabled}
-                alignmentGuides={alignmentGuides}
-                onAlignmentGuidesToggle={setAlignmentGuides}
-                bleedEnabled={bleedEnabled}
-                onBleedToggle={setBleedEnabled}
-                folds={folds}
-                onFoldsChange={setFolds}
-                mode={mode}
-                isMobile
-              />
-            </div>
-          </div>
+        {showResizeModal && (
+          <ResizeModal
+            currentSize={canvasSize}
+            onClose={() => setShowResizeModal(false)}
+            onResize={handleResize}
+          />
         )}
 
-        {/* Mobile bottom toolbar */}
-        <Toolbar
-          activeTool={activeTool}
-          onToolClick={handleToolClick}
-          sidebarExpanded={false}
-          onCloseSidebar={() => {}}
-          isMobile
-          onAddElement={addElement}
-          onBackgroundChange={handleBackgroundChange}
-          canvasBackground={canvasBackground}
-          mode={mode}
-          onCanvasSizeChange={handleCanvasSizeChange}
-        />
+        {showAIModal && (
+          <AIModal
+            onClose={() => setShowAIModal(false)}
+            onGenerate={handleAIGenerate}
+          />
+        )}
       </div>
     );
   }
 
-  // Desktop layout
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-editor-toolbar">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#f7f7f8]">
       <TopBar
         undo={undo}
         redo={redo}
@@ -361,9 +574,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
         isMobile={false}
         mode={mode}
         onBack={onBack}
+        onDownload={() => setShowDownloadModal(true)}
+        onResize={() => setShowResizeModal(true)}
+        onAI={() => setShowAIModal(true)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden bg-[#f7f7f8]">
         <Toolbar
           activeTool={activeTool}
           onToolClick={handleToolClick}
@@ -378,7 +594,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
 
         <CanvasStage
           elements={elements}
-          selectedElementId={selectedElementId}
+          selectedElementIds={selectedElementIds}
           onSelectElement={handleSelectElement}
           onUpdateElement={updateElement}
           zoom={zoom}
@@ -419,16 +635,179 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
           currentTime={currentTime}
           isPlaying={isPlaying}
           onTimeChange={setCurrentTime}
-          onPlayPause={() => setIsPlaying(p => !p)}
+          onPlayPause={() => setIsPlaying((p) => !p)}
           onDurationChange={setVideoDuration}
           elements={elements}
+        />
+      )}
+
+      {showDownloadModal && (
+        <DownloadModal
+          canvasSize={canvasSize}
+          onClose={() => setShowDownloadModal(false)}
+          onDownload={handleDownload}
+        />
+      )}
+
+      {showResizeModal && (
+        <ResizeModal
+          currentSize={canvasSize}
+          onClose={() => setShowResizeModal(false)}
+          onResize={handleResize}
+        />
+      )}
+
+      {showAIModal && (
+        <AIModal
+          onClose={() => setShowAIModal(false)}
+          onGenerate={handleAIGenerate}
         />
       )}
     </div>
   );
 };
 
-// Mobile tool content
+const DownloadModal: React.FC<{
+  canvasSize: CanvasSizePreset;
+  onClose: () => void;
+  onDownload: (format: string) => void;
+}> = ({ canvasSize, onClose, onDownload }) => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-background rounded-lg p-6 w-96 max-w-[90vw]">
+      <h3 className="text-lg font-semibold mb-4">Download Design</h3>
+      <div className="space-y-3 mb-6">
+        <p className="text-sm text-muted-foreground">
+          Size: {canvasSize.width}px × {canvasSize.height}px
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onDownload("png")}
+            className="h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            PNG
+          </button>
+          <button
+            onClick={() => onDownload("jpg")}
+            className="h-10 rounded-lg border border-border hover:bg-accent transition-colors"
+          >
+            JPG
+          </button>
+          <button
+            onClick={() => onDownload("pdf")}
+            className="h-10 rounded-lg border border-border hover:bg-accent transition-colors"
+          >
+            PDF
+          </button>
+          <button
+            onClick={() => onDownload("svg")}
+            className="h-10 rounded-lg border border-border hover:bg-accent transition-colors"
+          >
+            SVG
+          </button>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={onClose}
+          className="flex-1 h-9 rounded-lg border border-border hover:bg-accent transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const ResizeModal: React.FC<{
+  currentSize: CanvasSizePreset;
+  onClose: () => void;
+  onResize: (size: CanvasSizePreset) => void;
+}> = ({ currentSize, onClose, onResize }) => {
+  const [customWidth, setCustomWidth] = React.useState(currentSize.width);
+  const [customHeight, setCustomHeight] = React.useState(currentSize.height);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-background rounded-lg p-6 w-96 max-w-[90vw]">
+        <h3 className="text-lg font-semibold mb-4">Resize Canvas</h3>
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm text-muted-foreground">Width</label>
+              <input
+                type="number"
+                value={customWidth}
+                onChange={(e) => setCustomWidth(Number(e.target.value))}
+                className="w-full h-9 px-3 bg-accent/50 border border-border rounded-md"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Height</label>
+              <input
+                type="number"
+                value={customHeight}
+                onChange={(e) => setCustomHeight(Number(e.target.value))}
+                className="w-full h-9 px-3 bg-accent/50 border border-border rounded-md"
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => onResize({ ...currentSize, width: customWidth, height: customHeight })}
+            className="w-full h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Apply Resize
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 h-9 rounded-lg border border-border hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AIModal: React.FC<{
+  onClose: () => void;
+  onGenerate: (prompt: string) => void;
+}> = ({ onClose, onGenerate }) => {
+  const [prompt, setPrompt] = React.useState("");
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-background rounded-lg p-6 w-96 max-w-[90vw]">
+        <h3 className="text-lg font-semibold mb-4">AI Writer</h3>
+        <div className="space-y-4 mb-6">
+          <textarea
+            placeholder="Describe what you want to create..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="w-full h-24 p-3 bg-accent/50 border border-border rounded-md resize-none"
+          />
+          <button
+            onClick={() => onGenerate(prompt)}
+            className="w-full h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Generate
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 h-9 rounded-lg border border-border hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 import { ToolbarSidePanel } from "./ToolbarSidePanel";
 
 interface MobileToolContentProps {
@@ -440,7 +819,14 @@ interface MobileToolContentProps {
   onCanvasSizeChange: (preset: CanvasSizePreset) => void;
 }
 
-const MobileToolContent: React.FC<MobileToolContentProps> = ({ activeTool, onAddElement, onBackgroundChange, canvasBackground, mode, onCanvasSizeChange }) => {
+const MobileToolContent: React.FC<MobileToolContentProps> = ({
+  activeTool,
+  onAddElement,
+  onBackgroundChange,
+  canvasBackground,
+  mode,
+  onCanvasSizeChange,
+}) => {
   return (
     <ToolbarSidePanel
       activeTool={activeTool}

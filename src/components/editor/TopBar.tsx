@@ -20,9 +20,12 @@ interface TopBarProps {
   isMobile: boolean;
   mode: EditorMode;
   onBack: () => void;
+  onDownload?: () => void;
+  onResize?: () => void;
+  onAI?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, isMobile, mode, onBack }) => {
+export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, isMobile, mode, onBack, onDownload, onResize, onAI }) => {
   if (isMobile) {
     return (
       <header className="h-12 flex items-center justify-between px-3 bg-primary shrink-0 z-20">
@@ -73,8 +76,14 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
         <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100">
           File
         </button>
-        <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100">
+        <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onDownload}>
+          Download
+        </button>
+        <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onResize}>
           Resize
+        </button>
+        <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onAI}>
+          AI Writer
         </button>
 
         <div className="h-5 w-px bg-primary-foreground/20 mx-1" />
@@ -114,7 +123,7 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
           Share
         </button>
 
-        <button className="inline-flex items-center gap-1.5 bg-primary-foreground hover:bg-primary-foreground/90 text-primary text-[13px] font-medium px-4 py-2 rounded-md transition-colors duration-100">
+        <button className="inline-flex items-center gap-1.5 bg-primary-foreground hover:bg-primary-foreground/90 text-primary text-[13px] font-medium px-4 py-2 rounded-md transition-colors duration-100" onClick={onDownload}>
           <Download size={15} strokeWidth={1.5} />
           Download
         </button>

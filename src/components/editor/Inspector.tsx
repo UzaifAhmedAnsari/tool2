@@ -378,25 +378,49 @@ const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onUpdate, 
             </div>
 
             <Row label="Line Height">
-              <input
-                type="number"
-                step="0.1"
-                min="0.5"
-                max="4"
-                value={element.lineHeight || 1.2}
-                onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
-                className="w-16 h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
-              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="0.5"
+                  max="4"
+                  step="0.1"
+                  value={element.lineHeight || 1.2}
+                  onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
+                  className="w-16 h-1 accent-primary"
+                />
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  max="4"
+                  value={element.lineHeight || 1.2}
+                  onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
+                  className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
             </Row>
 
             <Row label="Letter Spacing">
-              <input
-                type="number"
-                step="0.5"
-                value={element.letterSpacing || 0}
-                onChange={(e) => onUpdate({ letterSpacing: Number(e.target.value) })}
-                className="w-16 h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
-              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="-5"
+                  max="10"
+                  step="0.5"
+                  value={element.letterSpacing || 0}
+                  onChange={(e) => onUpdate({ letterSpacing: Number(e.target.value) })}
+                  className="w-16 h-1 accent-primary"
+                />
+                <input
+                  type="number"
+                  step="0.5"
+                  min="-5"
+                  max="10"
+                  value={element.letterSpacing || 0}
+                  onChange={(e) => onUpdate({ letterSpacing: Number(e.target.value) })}
+                  className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
             </Row>
           </div>
         </Section>
@@ -475,9 +499,298 @@ const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onUpdate, 
               />
             </Row>
           )}
+          <Row label="Mask Shape">
+            <select
+              value={element.maskShape || "none"}
+              onChange={(e) => onUpdate({ maskShape: e.target.value as any })}
+              className="h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="none">None</option>
+              <option value="circle">Circle</option>
+              <option value="rounded">Rounded</option>
+              <option value="triangle">Triangle</option>
+              <option value="star">Star</option>
+              <option value="heart">Heart</option>
+            </select>
+          </Row>
         </div>
       </Section>
     )}
+
+    {/* ── TABLE properties ── */}
+    {element.type === "table" && (
+        <Section title="Table">
+          <div className="space-y-2.5">
+            <Row label="Rows">
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={element.rows || 3}
+                onChange={(e) => {
+                  const newRows = Number(e.target.value);
+                  const currentData = element.tableData || [];
+                  const newData = Array(newRows).fill(null).map((_, i) =>
+                    currentData[i] || Array(element.cols || 3).fill("")
+                  );
+                  onUpdate({ rows: newRows, tableData: newData });
+                }}
+                className="w-16 h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </Row>
+            <Row label="Columns">
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={element.cols || 3}
+                onChange={(e) => {
+                  const newCols = Number(e.target.value);
+                  const currentData = element.tableData || [];
+                  const newData = currentData.map(row => {
+                    const newRow = [...row];
+                    newRow.length = newCols;
+                    for (let i = row.length; i < newCols; i++) {
+                      newRow[i] = "";
+                    }
+                    return newRow;
+                  });
+                  onUpdate({ cols: newCols, tableData: newData });
+                }}
+                className="w-16 h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </Row>
+          </div>
+        </Section>
+      )}
+
+      <Section title="Filters">
+        <div className="space-y-2.5">
+          <Row label="Brightness">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={element.brightness ?? 100}
+                onChange={(e) => onUpdate({ brightness: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={element.brightness ?? 100}
+                onChange={(e) => onUpdate({ brightness: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+          <Row label="Contrast">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={element.contrast ?? 100}
+                onChange={(e) => onUpdate({ contrast: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={element.contrast ?? 100}
+                onChange={(e) => onUpdate({ contrast: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+          <Row label="Saturation">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={element.saturation ?? 100}
+                onChange={(e) => onUpdate({ saturation: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="200"
+                value={element.saturation ?? 100}
+                onChange={(e) => onUpdate({ saturation: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+          <Row label="Hue Rotate">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="360"
+                value={element.hueRotate ?? 0}
+                onChange={(e) => onUpdate({ hueRotate: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="360"
+                value={element.hueRotate ?? 0}
+                onChange={(e) => onUpdate({ hueRotate: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+          <Row label="Blur">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="0.1"
+                value={element.blur ?? 0}
+                onChange={(e) => onUpdate({ blur: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="20"
+                step="0.1"
+                value={element.blur ?? 0}
+                onChange={(e) => onUpdate({ blur: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+          <Row label="Invert">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={element.invert ?? 0}
+                onChange={(e) => onUpdate({ invert: Number(e.target.value) })}
+                className="w-16 h-1 accent-primary"
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={element.invert ?? 0}
+                onChange={(e) => onUpdate({ invert: Number(e.target.value) })}
+                className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </Row>
+        </div>
+      </Section>
+
+      <Section title="Animation">
+        <div className="space-y-2.5">
+          <Row label="Type">
+            <select
+              value={element.animation?.type || "none"}
+              onChange={(e) => {
+                const type = e.target.value;
+                if (type === "none") {
+                  onUpdate({ animation: undefined });
+                } else {
+                  onUpdate({
+                    animation: {
+                      type: type as any,
+                      duration: element.animation?.duration || 1,
+                      delay: element.animation?.delay || 0,
+                      direction: element.animation?.direction || "in"
+                    }
+                  });
+                }
+              }}
+              className="h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="none">None</option>
+              <option value="bounce">Bounce</option>
+              <option value="slide">Slide</option>
+              <option value="fade">Fade</option>
+              <option value="scale">Scale</option>
+              <option value="rotate">Rotate</option>
+            </select>
+          </Row>
+          {element.animation && (
+            <>
+              <Row label="Direction">
+                <select
+                  value={element.animation.direction}
+                  onChange={(e) => onUpdate({
+                    animation: { ...element.animation!, direction: e.target.value as "in" | "out" }
+                  })}
+                  className="h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                >
+                  <option value="in">In</option>
+                  <option value="out">Out</option>
+                </select>
+              </Row>
+              <Row label="Duration">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="5"
+                    step="0.1"
+                    value={element.animation.duration}
+                    onChange={(e) => onUpdate({
+                      animation: { ...element.animation!, duration: Number(e.target.value) }
+                    })}
+                    className="w-16 h-1 accent-primary"
+                  />
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="5"
+                    step="0.1"
+                    value={element.animation.duration}
+                    onChange={(e) => onUpdate({
+                      animation: { ...element.animation!, duration: Number(e.target.value) }
+                    })}
+                    className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  />
+                </div>
+              </Row>
+              <Row label="Delay">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={element.animation.delay}
+                    onChange={(e) => onUpdate({
+                      animation: { ...element.animation!, delay: Number(e.target.value) }
+                    })}
+                    className="w-16 h-1 accent-primary"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={element.animation.delay}
+                    onChange={(e) => onUpdate({
+                      animation: { ...element.animation!, delay: Number(e.target.value) }
+                    })}
+                    className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  />
+                </div>
+              </Row>
+            </>
+          )}
+        </div>
+      </Section>
 
     {/* Position - all types */}
     <Section title="Position">

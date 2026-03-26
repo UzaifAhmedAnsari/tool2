@@ -20,8 +20,7 @@ import {
   UtensilsCrossed,
   LayoutGrid,
   ChevronRight,
-} from "lucide-react";
-
+} from "lucide-react";import { ErrorBoundary } from "@/components/ErrorBoundary";
 // ── Comprehensive Image Size Presets by Category ──
 
 interface SizeCategory {
@@ -158,11 +157,13 @@ const Index = () => {
 
   if (editorState) {
     return (
-      <EditorShell
-        mode={editorState.mode}
-        initialSize={editorState.preset}
-        onBack={() => setEditorState(null)}
-      />
+      <ErrorBoundary>
+        <EditorShell
+          mode={editorState.mode}
+          initialSize={editorState.preset}
+          onBack={() => setEditorState(null)}
+        />
+      </ErrorBoundary>
     );
   }
 
