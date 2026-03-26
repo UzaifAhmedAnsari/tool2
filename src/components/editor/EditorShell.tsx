@@ -6,6 +6,7 @@ import { Inspector } from "./Inspector";
 import { TimelineBar } from "./TimelineBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileBottomDock } from "./MobileBottomDock";
+import { ToolbarSidePanel } from "./ToolbarSidePanel";
 
 export type ToolType =
   | "uploads"
@@ -94,12 +95,22 @@ interface EditorShellProps {
 export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onBack }) => {
   const isMobile = useIsMobile();
 
+  const safeInitialSize: CanvasSizePreset = initialSize ?? {
+    label: "Custom",
+    width: 1,
+    height: 1,
+  };
+
+  const hasValidInitialSize =
+    !!initialSize &&
+    initialSize.width > 0 &&
+    initialSize.height > 0;
+
   const [activeTool, setActiveTool] = React.useState<ToolType | null>(null);
   const [selectedElementIds, setSelectedElementIds] = React.useState<string[]>([]);
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
   const [zoom, setZoom] = React.useState(100);
-  // const [mobilePanel, setMobilePanel] = React.useState<"toolbar" | "inspector" | null>(null);
-  const [canvasSize, setCanvasSize] = React.useState<CanvasSizePreset>(initialSize);
+  const [canvasSize, setCanvasSize] = React.useState<CanvasSizePreset>(safeInitialSize);
   const [canvasBackground, setCanvasBackground] = React.useState("#FFFFFF");
   const [designTitle, setDesignTitle] = React.useState("A New Design");
   const [gridEnabled, setGridEnabled] = React.useState(false);
@@ -109,18 +120,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   const [showDownloadModal, setShowDownloadModal] = React.useState(false);
   const [showResizeModal, setShowResizeModal] = React.useState(false);
   const [showAIModal, setShowAIModal] = React.useState(false);
-
+  const editorRootRef = React.useRef<HTMLDivElement>(null);
   const [videoDuration, setVideoDuration] = React.useState(10);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
-
-  if (!initialSize || !initialSize.width || !initialSize.height) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-red-50 text-red-700">
-        <p className="text-lg">Invalid canvas size selected. Please go back and choose a valid preset.</p>
-      </div>
-    );
-  }
 
   const [elements, setElements] = React.useState<CanvasElement[]>([]);
   const [history, setHistory] = React.useState<HistoryEntry[]>([
@@ -205,6 +208,24 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   //   },
   //   [pushHistory, isMobile]
   // );
+
+  const moveSelectedElementsBy = useCallback(
+  (dx: number, dy: number) => {
+    if (selectedElementIds.length === 0) return;
+
+    setElements((prev) => {
+      const next = prev.map((el) =>
+        selectedElementIds.includes(el.id)
+          ? { ...el, x: el.x + dx, y: el.y + dy }
+          : el
+      );
+
+      pushHistory(next);
+      return next;
+    });
+  },
+  [selectedElementIds, pushHistory]
+);
 
   const addElement = useCallback(
   (element: Omit<CanvasElement, "id">) => {
@@ -297,6 +318,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
 
   const handleSelectElement = useCallback(
   (id: string | null, shiftKey: boolean = false) => {
+    editorRootRef.current?.focus();
+
     if (!id) {
       setSelectedElementIds([]);
       return;
@@ -314,7 +337,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
     }
   },
   []
-);  
+);
 
   const handleCanvasSizeChange = useCallback(
     (preset: CanvasSizePreset) => {
@@ -364,43 +387,131 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   }, []);
 
   React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      const contentEditable = (e.target as HTMLElement)?.getAttribute?.("contenteditable");
-      if (contentEditable === "true") return;
+  const el = editorRootRef.current;
+  if (!el) return;
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+  const handler = (e: KeyboardEvent) => {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
+
+    const contentEditable = (e.target as HTMLElement)?.getAttribute?.("contenteditable");
+    if (contentEditable === "true") return;
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+      if (selectedElementIds.length > 0) {
         e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
+        duplicateElement();
       }
+      return;
+    }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (selectedElementIds.length > 0) {
         e.preventDefault();
-        redo();
+        deleteElement();
       }
+      return;
+    }
 
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedElementIds.length > 0) {
-          e.preventDefault();
-          deleteElement();
-        }
-      }
+    const step = e.shiftKey ? 10 : 1;
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-        e.preventDefault();
-        if (selectedElementIds.length > 0) duplicateElement();
-      }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveSelectedElementsBy(0, -step);
+      return;
+    }
 
-      if (mode === "video" && e.key === " " && selectedElementIds.length === 0) {
-        e.preventDefault();
-        setIsPlaying((p) => !p);
-      }
-    };
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveSelectedElementsBy(0, step);
+      return;
+    }
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo, selectedElementIds, deleteElement, duplicateElement, mode]);
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      moveSelectedElementsBy(-step, 0);
+      return;
+    }
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      moveSelectedElementsBy(step, 0);
+      return;
+    }
+
+    if (mode === "video" && e.key === " " && selectedElementIds.length === 0) {
+      e.preventDefault();
+      setIsPlaying((p) => !p);
+    }
+  };
+
+  el.addEventListener("keydown", handler);
+  return () => el.removeEventListener("keydown", handler);
+}, [
+  undo,
+  redo,
+  selectedElementIds,
+  deleteElement,
+  duplicateElement,
+  moveSelectedElementsBy,
+  mode,
+]);
+
+  // React.useEffect(() => {
+  //   const handler = (e: KeyboardEvent) => {
+  //     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  //     const contentEditable = (e.target as HTMLElement)?.getAttribute?.("contenteditable");
+  //     if (contentEditable === "true") return;
+
+  //     if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+  //       e.preventDefault();
+  //       if (e.shiftKey) redo();
+  //       else undo();
+  //     }
+
+  //     if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+  //       e.preventDefault();
+  //       redo();
+  //     }
+
+  //     if (e.key === "Delete" || e.key === "Backspace") {
+  //       if (selectedElementIds.length > 0) {
+  //         e.preventDefault();
+  //         deleteElement();
+  //       }
+  //     }
+
+  //     if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+  //       e.preventDefault();
+  //       if (selectedElementIds.length > 0) duplicateElement();
+  //     }
+
+  //     if (mode === "video" && e.key === " " && selectedElementIds.length === 0) {
+  //       e.preventDefault();
+  //       setIsPlaying((p) => !p);
+  //     }
+  //   };
+
+  //   window.addEventListener("keydown", handler);
+  //   return () => window.removeEventListener("keydown", handler);
+  // }, [undo, redo, selectedElementIds, deleteElement, duplicateElement, mode]);
 
   // if (isMobile) {
   //   return (
@@ -576,9 +687,25 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
   //   );
   // }
 
+  if (!hasValidInitialSize) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-red-50 text-red-700">
+        <p className="text-lg">
+          Invalid canvas size selected. Please go back and choose a valid preset.
+        </p>
+      </div>
+    );
+  }
+
   if (isMobile) {
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100">
+    <div
+    ref={editorRootRef}
+    tabIndex={0}
+    // onMouseDownCapture={() => editorRootRef.current?.focus()}
+    onPointerDownCapture={() => editorRootRef.current?.focus()}
+    className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100 outline-none"
+  >
       <TopBar
         undo={undo}
         redo={redo}
@@ -671,7 +798,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({ mode, initialSize, onB
 }
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#f7f7f8]">
+  <div
+    ref={editorRootRef}
+    tabIndex={0}
+    // onMouseDownCapture={() => editorRootRef.current?.focus()}
+    onPointerDownCapture={() => editorRootRef.current?.focus()}
+    className="h-screen w-screen flex flex-col overflow-hidden bg-[#f7f7f8] outline-none"
+  >
       <TopBar
         undo={undo}
         redo={redo}
@@ -914,7 +1047,7 @@ const AIModal: React.FC<{
   );
 };
 
-// import { ToolbarSidePanel } from "./ToolbarSidePanel";
+
 
 // interface MobileToolContentProps {
 //   activeTool: ToolType;
@@ -925,22 +1058,22 @@ const AIModal: React.FC<{
 //   onCanvasSizeChange: (preset: CanvasSizePreset) => void;
 // }
 
-const MobileToolContent: React.FC<MobileToolContentProps> = ({
-  activeTool,
-  onAddElement,
-  onBackgroundChange,
-  canvasBackground,
-  mode,
-  onCanvasSizeChange,
-}) => {
-  return (
-    <ToolbarSidePanel
-      activeTool={activeTool}
-      onAddElement={onAddElement}
-      onBackgroundChange={onBackgroundChange}
-      canvasBackground={canvasBackground}
-      mode={mode}
-      onCanvasSizeChange={onCanvasSizeChange}
-    />
-  );
-};
+// const MobileToolContent: React.FC<MobileToolContentProps> = ({
+//   activeTool,
+//   onAddElement,
+//   onBackgroundChange,
+//   canvasBackground,
+//   mode,
+//   onCanvasSizeChange,
+// }) => {
+//   return (
+//     <ToolbarSidePanel
+//       activeTool={activeTool}
+//       onAddElement={onAddElement}
+//       onBackgroundChange={onBackgroundChange}
+//       canvasBackground={canvasBackground}
+//       mode={mode}
+//       onCanvasSizeChange={onCanvasSizeChange}
+//     />
+//   );
+// };

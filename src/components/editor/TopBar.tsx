@@ -76,9 +76,9 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
         <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100">
           File
         </button>
-        <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onDownload}>
+        {/* <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onDownload}>
           Download
-        </button>
+        </button> */}
         <button className="text-[13px] font-medium text-primary-foreground/90 hover:bg-primary-foreground/10 px-3 py-1.5 rounded-md transition-colors duration-100" onClick={onResize}>
           Resize
         </button>

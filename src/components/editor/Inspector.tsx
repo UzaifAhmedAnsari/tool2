@@ -117,6 +117,7 @@ export const DesignInspector: React.FC<{
   folds: string;
   onFoldsChange: (folds: string) => void;
   mode: EditorMode;
+  visibleSections?: Array<"size" | "styles" | "background" | "title" | "layout">;
 }> = ({
   canvasSize,
   canvasBackground,
@@ -132,121 +133,142 @@ export const DesignInspector: React.FC<{
   folds,
   onFoldsChange,
   mode,
+  visibleSections,
 }) => {
   const [bgType, setBgType] = React.useState<"solid" | "gradient" | "image">("solid");
 
+  const show = (section: "size" | "styles" | "background" | "title" | "layout") =>
+    !visibleSections || visibleSections.includes(section);
+
   return (
     <div className="p-4 space-y-5">
-      {/* Size */}
-      <Section title="Size">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] font-semibold text-foreground">{canvasSize.label}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {canvasSize.width}px × {canvasSize.height}px
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      {/* Styles */}
-      <Section title="Styles">
-        <button className="w-full h-9 rounded-lg border border-dashed border-editor-inspector-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-[12px]">
-          <Plus size={14} />
-        </button>
-      </Section>
-
-      {/* Background */}
-      <Section title="Background">
-        <div className="space-y-3">
+      {show("size") && (
+        <Section title="Size">
           <div className="flex items-center justify-between">
-            <select
-              value={bgType}
-              onChange={(e) => setBgType(e.target.value as "solid" | "gradient" | "image")}
-              className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 w-full"
-            >
-              <option value="solid">Solid Color</option>
-              <option value="gradient">Gradient</option>
-              <option value="image">Image</option>
-            </select>
+            <div>
+              <p className="text-[13px] font-semibold text-foreground">{canvasSize.label}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {canvasSize.width}px × {canvasSize.height}px
+              </p>
+            </div>
           </div>
-          {bgType === "solid" && (
+        </Section>
+      )}
+
+      {show("styles") && (
+        <Section title="Styles">
+          <button className="w-full h-9 rounded-lg border border-dashed border-editor-inspector-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-[12px]">
+            <Plus size={14} />
+          </button>
+        </Section>
+      )}
+
+      {show("background") && (
+        <Section title="Background">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[12px] text-muted-foreground">Color</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={canvasBackground.startsWith("#") ? canvasBackground : "#ffffff"}
-                  onChange={(e) => onBackgroundChange(e.target.value)}
-                  className="w-8 h-8 rounded-md border border-editor-inspector-border cursor-pointer"
-                />
-              </div>
+              <select
+                value={bgType}
+                onChange={(e) => setBgType(e.target.value as "solid" | "gradient" | "image")}
+                className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 w-full"
+              >
+                <option value="solid">Solid Color</option>
+                <option value="gradient">Gradient</option>
+                <option value="image">Image</option>
+              </select>
             </div>
-          )}
-          {bgType === "gradient" && (
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-                "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-                "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-                "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-                "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-              ].map((gradient, i) => (
-                <button
-                  key={i}
-                  onClick={() => onBackgroundChange(gradient)}
-                  className={`w-full aspect-square rounded-md border transition-transform hover:scale-105 ${
-                    canvasBackground === gradient ? "border-primary ring-2 ring-primary/30" : "border-editor-inspector-border"
-                  }`}
-                  style={{ background: gradient }}
-                />
-              ))}
-            </div>
-          )}
-          {bgType === "image" && (
-            <div className="text-[12px] text-muted-foreground text-center py-3">
-              Upload or choose a background image from the Media panel.
-            </div>
-          )}
-        </div>
-      </Section>
 
-      {/* Title */}
-      <Section title="Title">
-        <input
-          type="text"
-          value={designTitle}
-          onChange={(e) => onDesignTitleChange(e.target.value)}
-          className="w-full h-9 px-3 text-[13px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-        />
-      </Section>
-
-      {/* Layout */}
-      <Section title="Layout">
-        <div className="space-y-3">
-          <ToggleRow label="Grid" on={gridEnabled} onToggle={onGridToggle} />
-          {mode === "image" && (
-            <>
+            {bgType === "solid" && (
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-muted-foreground">Folds</span>
-                <select
-                  value={folds}
-                  onChange={(e) => onFoldsChange(e.target.value)}
-                  className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                >
-                  <option value="none">None</option>
-                  <option value="bi-fold">Bi-fold</option>
-                  <option value="tri-fold">Tri-fold</option>
-                  <option value="z-fold">Z-fold</option>
-                </select>
+                <span className="text-[12px] text-muted-foreground">Color</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={canvasBackground.startsWith("#") ? canvasBackground : "#ffffff"}
+                    onChange={(e) => onBackgroundChange(e.target.value)}
+                    className="w-8 h-8 rounded-md border border-editor-inspector-border cursor-pointer"
+                  />
+                </div>
               </div>
-              <ToggleRow label="Bleed" on={bleedEnabled} onToggle={onBleedToggle} />
-            </>
-          )}
-          <ToggleRow label="Alignment Guides" on={alignmentGuides} onToggle={onAlignmentGuidesToggle} />
-        </div>
-      </Section>
+            )}
+
+            {bgType === "gradient" && (
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                  "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+                  "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+                  "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+                  "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+                ].map((gradient, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onBackgroundChange(gradient)}
+                    className={`w-full aspect-square rounded-md border transition-transform hover:scale-105 ${
+                      canvasBackground === gradient
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-editor-inspector-border"
+                    }`}
+                    style={{ background: gradient }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {bgType === "image" && (
+              <div className="text-[12px] text-muted-foreground text-center py-3">
+                Upload or choose a background image from the Media panel.
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {show("title") && (
+        <Section title="Title">
+          <input
+            type="text"
+            value={designTitle}
+            onChange={(e) => onDesignTitleChange(e.target.value)}
+            className="w-full h-9 px-3 text-[13px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+        </Section>
+      )}
+
+      {show("layout") && (
+        <Section title="Layout">
+          <div className="space-y-3">
+            <ToggleRow label="Grid" on={gridEnabled} onToggle={onGridToggle} />
+
+            {mode === "image" && (
+              <>
+                {/* <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-muted-foreground">Folds</span>
+                  <select
+                    value={folds}
+                    onChange={(e) => onFoldsChange(e.target.value)}
+                    className="h-8 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="none">None</option>
+                    <option value="bi-fold">Bi-fold</option>
+                    <option value="tri-fold">Tri-fold</option>
+                    <option value="z-fold">Z-fold</option>
+                  </select>
+                </div> */}
+
+                <ToggleRow label="Bleed" on={bleedEnabled} onToggle={onBleedToggle} />
+              </>
+            )}
+
+            <ToggleRow
+              label="Alignment Guides"
+              on={alignmentGuides}
+              onToggle={onAlignmentGuidesToggle}
+            />
+          </div>
+        </Section>
+      )}
     </div>
   );
 };
@@ -367,7 +389,7 @@ export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onU
               })}
             </div>
 
-            <Row label="Line Height">
+            {/* <Row label="Line Height">
               <div className="flex items-center gap-1.5">
                 <input
                   type="range"
@@ -388,7 +410,7 @@ export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onU
                   className="w-12 h-7 px-1 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
                 />
               </div>
-            </Row>
+            </Row> */}
 
             <Row label="Letter Spacing">
               <div className="flex items-center gap-1.5">
@@ -681,7 +703,7 @@ export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onU
         </div>
       </Section>
 
-      <Section title="Animation">
+      {/* <Section title="Animation">
         <div className="space-y-2.5">
           <Row label="Type">
             <select
@@ -780,7 +802,7 @@ export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onU
             </>
           )}
         </div>
-      </Section>
+      </Section> */}
 
     {/* Position - all types */}
     <Section title="Position">
@@ -797,7 +819,7 @@ export const ElementInspector: React.FC<ElementInspectorProps> = ({ element, onU
               type="number"
               value={Math.round(value)}
               onChange={(e) => onUpdate({ [key]: Number(e.target.value) })}
-              className="flex-1 h-7 px-2 text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="flex-1 h-7 w-full text-[12px] bg-accent/50 border border-editor-inspector-border rounded-md text-foreground text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
           </div>
         ))}

@@ -158,10 +158,10 @@ const ToolListItem: React.FC<{
   <button
     onClick={onClick}
     className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition ${
-      active ? "bg-[#f3efff]" : "hover:bg-[#faf8ff]"
+      active ? "" : "hover:bg-[#faf8ff]"
     }`}
   >
-    <div className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-xl bg-[#d7d7fc] text-[#7650e3]">
+    <div className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-xl bg-[#f3efff] text-[#7650e3]">
       {icon}
     </div>
     <div className="min-w-0">
@@ -313,7 +313,7 @@ const TextPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => voi
           onClick={() => addText("subtitle")}
         />
         <div className="mx-4 border-t border-[#e5e7eb]" />
-        <ToolListItem
+        {/* <ToolListItem
           icon={<Clapperboard size={28} strokeWidth={1.6} />}
           title="Slideshow"
           subtitle="Add a text slideshow"
@@ -324,7 +324,7 @@ const TextPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => voi
           title="Menu"
           subtitle="Create your own menu"
           onClick={() => addText("menu")}
-        />
+        /> */}
       </div>
     </PanelCard>
   );
@@ -736,7 +736,7 @@ const AIPanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => void 
     <div className="space-y-4">
       <PanelCard className="p-4">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef6ff] text-[#0d73aa]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3efff] text-[#7650e3]">
             <Sparkles size={18} />
           </div>
           <div>
@@ -958,8 +958,8 @@ const TablePanel: React.FC<{ onAddElement: (el: Omit<CanvasElement, "id">) => vo
       </PanelCard>
 
       <button
-        onClick={addTable}
-        className="h-11 w-full rounded-xl bg-[#0d73aa] text-sm font-semibold text-white transition hover:bg-[#0b6798]"
+        onClick={addTable}   
+        className="h-11 w-full rounded-xl bg-[#7650e3] text-sm font-semibold text-white transition hover:bg-[#0b6798]"
       >
         Add table
       </button>

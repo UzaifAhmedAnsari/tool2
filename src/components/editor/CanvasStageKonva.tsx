@@ -3,7 +3,6 @@ import React, {
   useState,
   useCallback,
   useEffect,
-  useMemo,
   useLayoutEffect,
 } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
@@ -45,6 +44,15 @@ type ParsedLinearGradient = {
   colorStops: Array<{ color: string; offset: number }>;
 };
 
+const GRID_SIZE = 50;
+const GRID_MINOR_COLOR = "rgba(15, 23, 42, 0.14)";
+const GRID_MAJOR_COLOR = "rgba(15, 23, 42, 0.24)";
+const GRID_MAJOR_EVERY = 5;
+
+function snap(value: number, size: number) {
+  return Math.round(value / size) * size;
+}
+
 export const CanvasStage: React.FC<CanvasStageProps> = ({
   elements,
   selectedElementIds,
@@ -54,7 +62,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   onZoomChange,
   canvasSize,
   canvasBackground,
-  gridEnabled,
+  gridEnabled = false,
   bleedEnabled,
   isMobileViewport = false,
 }) => {
@@ -65,8 +73,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
+  const gridLayerRef = useRef<Konva.Layer | null>(null);
   const shapeRefs = useRef<Map<string, Konva.Node>>(new Map());
-
   const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [inlineEditor, setInlineEditor] = useState<InlineEditorState | null>(
@@ -76,19 +84,14 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
   const scale = zoom / 100;
 
-  const editingElement = useMemo(
-    () => elements.find((el) => el.id === inlineEditor?.id) || null,
-    [elements, inlineEditor?.id],
-  );
-
   const syncStageScale = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
+    stage.width(canvasSize.width);
+    stage.height(canvasSize.height);
     stage.scale({ x: scale, y: scale });
-    stage.width(canvasSize.width * scale);
-    stage.height(canvasSize.height * scale);
-    stage.batchDraw();
+    stage.draw();
   }, [canvasSize.width, canvasSize.height, scale]);
 
   const getInlineEditorState = useCallback(
@@ -124,7 +127,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const startInlineEditing = useCallback(
     (element: CanvasElement, node: Konva.Text) => {
       node.hide();
-      layerRef.current?.batchDraw();
+      layerRef.current?.draw();
 
       setEditingText(element.content || "");
       setInlineEditor(getInlineEditorState(element, node));
@@ -157,7 +160,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
       setInlineEditor(null);
       setEditingText("");
-      layerRef.current?.batchDraw();
+      layerRef.current?.draw();
     },
     [editingText, inlineEditor, onUpdateElement, scale],
   );
@@ -167,12 +170,15 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
     const stage = new Konva.Stage({
       container: konvaContainerRef.current,
-      width: canvasSize.width * scale,
-      height: canvasSize.height * scale,
+      width: canvasSize.width,
+      height: canvasSize.height,
       draggable: false,
     });
 
+    const gridLayer = new Konva.Layer({ listening: false });
     const layer = new Konva.Layer();
+
+    stage.add(gridLayer);
     stage.add(layer);
 
     const transformer = new Konva.Transformer({
@@ -188,6 +194,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     layer.add(transformer);
 
     stageRef.current = stage;
+    gridLayerRef.current = gridLayer;
     layerRef.current = layer;
     transformerRef.current = transformer;
 
@@ -203,11 +210,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     return () => {
       stage.destroy();
       stageRef.current = null;
+      gridLayerRef.current = null;
       layerRef.current = null;
       transformerRef.current = null;
       shapeRefs.current.clear();
     };
-  }, [canvasSize.width, canvasSize.height, scale, onSelectElement]);
+  }, [canvasSize.width, canvasSize.height, onSelectElement]);
 
   useEffect(() => {
     syncStageScale();
@@ -222,7 +230,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     if (!element) return;
 
     setInlineEditor(getInlineEditorState(element, node));
-  }, [inlineEditor?.id, elements, zoom, getInlineEditorState]);
+  }, [inlineEditor?.id, elements, zoom, getInlineEditorState, inlineEditor]);
 
   useEffect(() => {
     const layer = layerRef.current;
@@ -232,16 +240,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     const oldShapes = layer.getChildren((node) => node !== transformer);
     oldShapes.forEach((shape) => shape.destroy());
     shapeRefs.current.clear();
-
-    const backgroundNode = createCanvasBackgroundNode(
-      canvasBackground,
-      canvasSize.width,
-      canvasSize.height,
-    );
-    if (backgroundNode) {
-      layer.add(backgroundNode);
-      backgroundNode.moveToBottom();
-    }
 
     elements.forEach((element) => {
       const shape = createKonvaShape(element);
@@ -276,11 +274,28 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         });
       }
 
+      shape.on("dragmove", () => {
+        if (!gridEnabled) return;
+
+        const pos = shape.position();
+        shape.position({
+          x: snap(pos.x, GRID_SIZE),
+          y: snap(pos.y, GRID_SIZE),
+        });
+
+        layer.draw();
+      });
+
       shape.on("dragend", () => {
         const pos = shape.position();
+        const nextX = gridEnabled ? snap(pos.x, GRID_SIZE) : pos.x;
+        const nextY = gridEnabled ? snap(pos.y, GRID_SIZE) : pos.y;
+
+        shape.position({ x: nextX, y: nextY });
+
         onUpdateElement(element.id, {
-          x: Math.round(pos.x),
-          y: Math.round(pos.y),
+          x: Math.round(nextX),
+          y: Math.round(nextY),
         });
 
         if (inlineEditor?.id === element.id && shape instanceof Konva.Text) {
@@ -290,27 +305,37 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
       shape.on("transformend", () => {
         const pos = shape.position();
-        const attrs: Partial<CanvasElement> = {
-          x: Math.round(pos.x),
-          y: Math.round(pos.y),
-          rotation: Math.round(shape.rotation() || 0),
-        };
+
+        let nextX = pos.x;
+        let nextY = pos.y;
+        let nextWidth: number;
+        let nextHeight: number;
 
         if (shape instanceof Konva.Group) {
-          attrs.width = Math.round(shape.width());
-          attrs.height = Math.round(shape.height());
+          nextWidth = shape.width();
+          nextHeight = shape.height();
         } else {
-          attrs.width = Math.round(
-            (shape.width() || 0) * (shape.scaleX?.() || 1),
-          );
-          attrs.height = Math.round(
-            (shape.height() || 0) * (shape.scaleY?.() || 1),
-          );
+          nextWidth = (shape.width() || 0) * (shape.scaleX?.() || 1);
+          nextHeight = (shape.height() || 0) * (shape.scaleY?.() || 1);
           shape.scaleX(1);
           shape.scaleY(1);
         }
 
-        onUpdateElement(element.id, attrs);
+        if (gridEnabled) {
+          nextX = snap(nextX, GRID_SIZE);
+          nextY = snap(nextY, GRID_SIZE);
+          nextWidth = Math.max(GRID_SIZE, snap(nextWidth, GRID_SIZE));
+          nextHeight = Math.max(GRID_SIZE, snap(nextHeight, GRID_SIZE));
+          shape.position({ x: nextX, y: nextY });
+        }
+
+        onUpdateElement(element.id, {
+          x: Math.round(nextX),
+          y: Math.round(nextY),
+          width: Math.round(nextWidth),
+          height: Math.round(nextHeight),
+          rotation: Math.round(shape.rotation() || 0),
+        });
 
         if (inlineEditor?.id === element.id && shape instanceof Konva.Text) {
           setInlineEditor(getInlineEditorState(element, shape));
@@ -330,13 +355,13 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       if (transformer && selectedNodes.length > 0) {
         transformer.nodes(selectedNodes);
       } else {
-        transformer?.nodes([]);
+        transformer.nodes([]);
       }
     } else {
-      transformer?.nodes([]);
+      transformer.nodes([]);
     }
 
-    layer.batchDraw();
+    layer.draw();
   }, [
     elements,
     selectedElementIds,
@@ -345,10 +370,74 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     onUpdateElement,
     startInlineEditing,
     getInlineEditorState,
+    gridEnabled,
+  ]);
+
+  useEffect(() => {
+    const gridLayer = gridLayerRef.current;
+    if (!gridLayer) return;
+
+    gridLayer.destroyChildren();
+
+    const backgroundNode = createCanvasBackgroundNode(
+      canvasBackground,
+      canvasSize.width,
+      canvasSize.height,
+    );
+
+    if (backgroundNode) {
+      gridLayer.add(backgroundNode);
+    }
+
+    if (gridEnabled) {
+      drawGrid(gridLayer, canvasSize.width, canvasSize.height, GRID_SIZE);
+    }
+
+    gridLayer.draw();
+  }, [
     canvasBackground,
     canvasSize.width,
     canvasSize.height,
+    gridEnabled,
   ]);
+
+  useEffect(() => {
+    const redrawGridLayer = () => {
+      const stage = stageRef.current;
+      const gridLayer = gridLayerRef.current;
+      if (!stage || !gridLayer) return;
+
+      gridLayer.visible(true);
+      gridLayer.draw();
+      stage.draw();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        requestAnimationFrame(redrawGridLayer);
+      }
+    };
+
+    const handleFocus = () => {
+      requestAnimationFrame(redrawGridLayer);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("resize", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("resize", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const gridLayer = gridLayerRef.current;
+    if (!gridLayer) return;
+    gridLayer.draw();
+  }, [zoom]);
 
   useEffect(() => {
     if (!inlineEditor || !textInputRef.current) return;
@@ -429,7 +518,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   }, [canvasSize.width, canvasSize.height, isMobileViewport, onZoomChange]);
 
   useLayoutEffect(() => {
-    let raf = requestAnimationFrame(() => {
+    const raf = requestAnimationFrame(() => {
       fitToScreen();
     });
 
@@ -464,10 +553,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   }, [fitToScreen]);
 
   const showTransparentPreview = canvasBackground === "transparent";
-  const showCssBackgroundFallback =
-    !showTransparentPreview &&
-    !isSupportedKonvaBackground(canvasBackground) &&
-    Boolean(canvasBackground);
+  const wrapperBackground =
+    !showTransparentPreview && canvasBackground ? canvasBackground : "#ffffff";
 
   return (
     <div
@@ -487,7 +574,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         }}
       >
         <div
-          className="min-w-full min-h-full flex items-center justify-center"
+          className="min-w-full min-h-full flex items-start justify-center"
           style={{
             paddingLeft: isMobileViewport ? 8 : 40,
             paddingRight: isMobileViewport ? 8 : 40,
@@ -503,9 +590,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
               height: canvasSize.height * scale,
               boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
               overflow: "hidden",
-              background: showCssBackgroundFallback
-                ? canvasBackground
-                : undefined,
+              background: wrapperBackground,
             }}
           >
             {showTransparentPreview && (
@@ -520,19 +605,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
                   `,
                   backgroundSize: "20px 20px",
                   backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
-                }}
-              />
-            )}
-
-            {gridEnabled && (
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundImage: `
-                    linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)
-                  `,
-                  backgroundSize: `${50 * scale}px ${50 * scale}px`,
                 }}
               />
             )}
@@ -552,6 +624,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
 
             <div
               ref={konvaContainerRef}
+              className="absolute inset-0"
               style={{
                 width: canvasSize.width * scale,
                 height: canvasSize.height * scale,
@@ -865,11 +938,37 @@ function createCanvasBackgroundNode(
   });
 }
 
-function isSupportedKonvaBackground(canvasBackground: string): boolean {
-  if (!canvasBackground || canvasBackground === "transparent") return true;
-  if (isProbablyColor(canvasBackground)) return true;
-  if (parseLinearGradient(canvasBackground)) return true;
-  return false;
+function drawGrid(
+  layer: Konva.Layer,
+  width: number,
+  height: number,
+  gridSize: number = GRID_SIZE,
+) {
+  for (let x = 0; x <= width; x += gridSize) {
+    const isMajor = x % (gridSize * GRID_MAJOR_EVERY) === 0;
+
+    layer.add(
+      new Konva.Line({
+        points: [x, 0, x, height],
+        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
+        strokeWidth: isMajor ? 1.2 : 1,
+        listening: false,
+      }),
+    );
+  }
+
+  for (let y = 0; y <= height; y += gridSize) {
+    const isMajor = y % (gridSize * GRID_MAJOR_EVERY) === 0;
+
+    layer.add(
+      new Konva.Line({
+        points: [0, y, width, y],
+        stroke: isMajor ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
+        strokeWidth: isMajor ? 1.2 : 1,
+        listening: false,
+      }),
+    );
+  }
 }
 
 function isProbablyColor(value: string): boolean {
@@ -1009,8 +1108,9 @@ function normalizeGradientStops(
   const result = stops.map((stop) => ({ ...stop }));
 
   if (result[0].offset == null) result[0].offset = 0;
-  if (result[result.length - 1].offset == null)
+  if (result[result.length - 1].offset == null) {
     result[result.length - 1].offset = 1;
+  }
 
   let i = 0;
   while (i < result.length) {

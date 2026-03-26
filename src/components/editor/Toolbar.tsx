@@ -13,6 +13,7 @@ import {
   QrCode,
   MoreHorizontal,
   Table2,
+  Triangle,
 } from "lucide-react";
 import type {
   ToolType,
@@ -39,9 +40,9 @@ const tools: ToolItem[] = [
   { id: "layout", label: "Layout", icon: LayoutDashboard, modes: ["image", "video"] },
   { id: "table", label: "Table", icon: Table2, modes: ["image", "video"] },
   { id: "record", label: "Record", icon: CircleDot, modes: ["video"] },
-  { id: "draw", label: "Draw", icon: Pencil, modes: ["image", "video"] },
+  { id: "draw", label: "Shape", icon: Triangle, modes: ["image", "video"] },
   { id: "slideshow", label: "Slideshow", icon: Film, modes: ["video"] },
-  { id: "qrcode", label: "QR code", icon: QrCode, modes: ["image", "video"] },
+  // { id: "qrcode", label: "QR code", icon: QrCode, modes: ["image", "video"] },
 ];
 
 

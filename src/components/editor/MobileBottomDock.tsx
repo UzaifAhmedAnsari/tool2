@@ -10,9 +10,8 @@ import {
   LayoutGrid,
   Image,
   CircleDot,
-  Pencil,
+  Triangle,
   Film,
-  QrCode,
   Table2,
   X,
   ChevronLeft,
@@ -132,8 +131,8 @@ const tools: ToolItem[] = [
   },
   {
     id: "draw",
-    label: "Draw",
-    icon: Pencil,
+    label: "Shape",
+    icon: Triangle,
     description: "Use a free-hand drawing tool",
     modes: ["image", "video"],
   },
@@ -156,13 +155,6 @@ const tools: ToolItem[] = [
     label: "Background",
     icon: Palette,
     description: "Set solid, gradient, or image backgrounds",
-    modes: ["image", "video"],
-  },
-  {
-    id: "qrcode",
-    label: "QR Code",
-    icon: QrCode,
-    description: "Generate a QR code for your design",
     modes: ["image", "video"],
   },
 ];
@@ -220,6 +212,8 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
   );
 
   const tabs = selectedElement ? elementTabs : designTabs;
+  const primaryTab = tabs[0];
+  const scrollableTabs = tabs.slice(1);
   const isOpen = openTab !== null;
 
   React.useEffect(() => {
@@ -253,11 +247,9 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
   const renderHeaderTitle = () => {
     if (openTab === "add") {
       if (addToolView === "tool" && activeTool) {
-        return activeTool === "qrcode"
-          ? "QR Code"
-          : activeTool === "ai"
-            ? "AI"
-            : activeTool.charAt(0).toUpperCase() + activeTool.slice(1);
+        return activeTool === "ai"
+          ? "AI"
+          : activeTool.charAt(0).toUpperCase() + activeTool.slice(1);
       }
       return "Add";
     }
@@ -274,6 +266,118 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
     return "";
   };
 
+  const renderDesignTabPanel = () => {
+    switch (openTab) {
+      case "styles":
+        return (
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+            visibleSections={["styles"]}
+          />
+        );
+
+      case "resize":
+        return (
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+            visibleSections={["size"]}
+          />
+        );
+
+      case "background":
+        return (
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+            visibleSections={["background"]}
+          />
+        );
+
+      case "title":
+        return (
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+            visibleSections={["title"]}
+          />
+        );
+
+      case "layout":
+        return (
+          <DesignInspector
+            canvasSize={canvasSize}
+            canvasBackground={canvasBackground}
+            onBackgroundChange={onBackgroundChange}
+            designTitle={designTitle}
+            onDesignTitleChange={onDesignTitleChange}
+            gridEnabled={gridEnabled}
+            onGridToggle={onGridToggle}
+            alignmentGuides={alignmentGuides}
+            onAlignmentGuidesToggle={onAlignmentGuidesToggle}
+            bleedEnabled={bleedEnabled}
+            onBleedToggle={onBleedToggle}
+            folds={folds}
+            onFoldsChange={onFoldsChange}
+            mode={mode}
+            visibleSections={["layout"]}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       {isOpen && (
@@ -285,7 +389,6 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
         />
       )}
 
-      {/* sliding sheet */}
       <div
         className={`fixed inset-x-0 z-50 transition-transform duration-300 ${
           isOpen ? "translate-y-0" : "translate-y-full"
@@ -327,7 +430,10 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
             </button>
           </div>
 
-          <div className="overflow-y-auto px-3 pb-4" style={{ maxHeight: "calc(60dvh - 64px)" }}>
+          <div
+            className="overflow-y-auto px-3 pb-4"
+            style={{ maxHeight: "calc(60dvh - 64px)" }}
+          >
             {openTab === "add" && addToolView === "list" && (
               <div className="space-y-1">
                 {filteredTools.map((tool) => {
@@ -338,7 +444,7 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
                       onClick={() => handleOpenTool(tool.id)}
                       className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left hover:bg-accent/60"
                     >
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-500">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f3efff] text-[#7650e3]">
                         <Icon size={20} strokeWidth={1.8} />
                       </div>
                       <div className="min-w-0">
@@ -374,22 +480,7 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
 
             {!selectedElement && openTab && openTab !== "add" && (
               <div className="px-1 pb-4">
-                <DesignInspector
-                  canvasSize={canvasSize}
-                  canvasBackground={canvasBackground}
-                  onBackgroundChange={onBackgroundChange}
-                  designTitle={designTitle}
-                  onDesignTitleChange={onDesignTitleChange}
-                  gridEnabled={gridEnabled}
-                  onGridToggle={onGridToggle}
-                  alignmentGuides={alignmentGuides}
-                  onAlignmentGuidesToggle={onAlignmentGuidesToggle}
-                  bleedEnabled={bleedEnabled}
-                  onBleedToggle={onBleedToggle}
-                  folds={folds}
-                  onFoldsChange={onFoldsChange}
-                  mode={mode}
-                />
+                {renderDesignTabPanel()}
               </div>
             )}
 
@@ -413,45 +504,54 @@ export const MobileBottomDock: React.FC<MobileBottomDockProps> = ({
         </div>
       </div>
 
-      {/* always visible bottom rail */}
       <div
         className="fixed inset-x-0 bottom-0 z-[60] border-t border-border bg-background px-2 py-1 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)",
         }}
       >
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = openTab === tab.id;
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleDockTabClick(primaryTab.id)}
+            className={`flex min-w-[72px] shrink-0 flex-col items-center justify-center rounded-xl px-3 py-2 transition-colors ${
+              openTab === primaryTab.id ? "text-primary" : "text-foreground"
+            }`}
+          >
+            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <primaryTab.icon size={18} strokeWidth={1.8} />
+            </div>
+            <span className="whitespace-nowrap text-[11px] font-medium">
+              {primaryTab.label}
+            </span>
+          </button>
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleDockTabClick(tab.id)}
-                className={`flex min-w-[70px] shrink-0 flex-col items-center justify-center rounded-xl px-3 py-2 transition-colors ${
-                  tab.primary
-                    ? isActive
-                      ? "text-primary"
-                      : "text-foreground"
-                    : isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground"
-                }`}
-              >
-                <div
-                  className={`mb-1 flex h-9 w-9 items-center justify-center rounded-full ${
-                    tab.primary ? "bg-primary text-primary-foreground" : ""
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={1.8} />
-                </div>
-                <span className="whitespace-nowrap text-[11px] font-medium">
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
+          <div className="min-w-0 flex-1 overflow-x-auto">
+            <div className="flex items-center gap-1 pr-1">
+              {scrollableTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = openTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleDockTabClick(tab.id)}
+                    className={`flex min-w-[78px] shrink-0 flex-col items-center justify-center rounded-xl px-3 py-2 transition-colors ${
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full">
+                      <Icon size={18} strokeWidth={1.8} />
+                    </div>
+                    <span className="whitespace-nowrap text-[11px] font-medium">
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </>
