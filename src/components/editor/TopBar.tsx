@@ -28,7 +28,7 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, isMobile, mode, onBack, onDownload, onResize, onAI }) => {
   if (isMobile) {
     return (
-      <header className="h-12 flex items-center justify-between px-3 bg-primary shrink-0 z-20">
+      <header className="h-12 flex items-center justify-between px-3 bg-[#7650e3] shrink-0 z-20">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="p-1.5 rounded-md hover:bg-primary-foreground/10 transition-colors">
             <ArrowLeft size={18} strokeWidth={1.5} className="text-primary-foreground" />
@@ -52,7 +52,7 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
           >
             <Redo2 size={16} strokeWidth={1.5} className="text-primary-foreground/80" />
           </button>
-          <button className="inline-flex items-center gap-1 bg-primary-foreground text-primary text-xs font-semibold px-3 py-1.5 rounded-md transition-colors">
+          <button className="inline-flex items-center gap-1 bg-primary-foreground text-[#7650e3] text-xs font-semibold px-3 py-1.5 rounded-md transition-colors">
             <Download size={13} strokeWidth={1.5} />
             Save
           </button>
@@ -123,7 +123,7 @@ export const TopBar: React.FC<TopBarProps> = ({ undo, redo, canUndo, canRedo, is
           Share
         </button>
 
-        <button className="inline-flex items-center gap-1.5 bg-primary-foreground hover:bg-primary-foreground/90 text-primary text-[13px] font-medium px-4 py-2 rounded-md transition-colors duration-100" onClick={onDownload}>
+        <button className="inline-flex items-center gap-1.5 bg-primary-foreground hover:bg-primary-foreground/90 text-[#7650e3] text-[13px] font-medium px-4 py-2 rounded-md transition-colors duration-100" onClick={onDownload}>
           <Download size={15} strokeWidth={1.5} />
           Download
         </button>
